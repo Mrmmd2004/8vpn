@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">8 VPN</string>
+    <string name="core_aether" translatable="false">Aether</string>
+    <string name="core_psiphon" translatable="false">Psiphon</string>
+    <string name="core_tor" translatable="false">Tor</string>
+
+    <string name="disconnected">Not connected</string>
+    <string name="connecting">Connecting…</string>
+    <string name="connected">Connected</string>
+    <string name="reconnecting">Reconnecting…</string>
+    <string name="stopping">Disconnecting…</string>
+    <string name="attempt_of">Attempt %1$d of %2$d</string>
+    <string name="tap_to_connect">Tap to connect</string>
+    <string name="connect_failed">Could not connect. Check the logs.</string>
+    <string name="vpn_iface_failed">Could not create the VPN interface.</string>
+    <string name="disconnect">Disconnect</string>
+
+    <string name="ping">Ping</string>
+    <string name="download">Download</string>
+    <string name="upload">Upload</string>
+    <string name="protocol">Protocol</string>
+    <string name="exit_ip">Exit IP</string>
+    <string name="ms_fmt">%1$d ms</string>
+    <string name="proxy_info">SOCKS5 %1$s</string>
+    <string name="http_info">HTTP %1$s</string>
+
+    <string name="logs">Logs</string>
+    <string name="settings">Settings</string>
+    <string name="about">About</string>
+    <string name="back">Back</string>
+    <string name="no_logs">No log lines yet.</string>
+
+    <string name="route">Route</string>
+    <string name="transport">Transport</string>
+    <string name="region">Psiphon region</string>
+    <string name="region_auto">Auto</string>
+    <string name="psiphon_mode">Psiphon mode</string>
+    <string name="bridges">Tor bridges</string>
+    <string name="bridges_auto">Auto</string>
+    <string name="bridges_always">Always</string>
+    <string name="bridges_never">Never</string>
+    <string name="search">Search</string>
+    <string name="mode_vpn">VPN</string>
+    <string name="mode_proxy">Proxy only</string>
+    <string name="locked_hint">Disconnect to change these options.</string>
+
+    <string name="sec_general">General</string>
+    <string name="sec_core">Core and protocol</string>
+    <string name="sec_routing">Routing</string>
+    <string name="sec_psiphon">Psiphon</string>
+    <string name="sec_tor">Tor</string>
+    <string name="sec_advanced">Advanced</string>
+
+    <string name="language">Language</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="dynamic_color">Dynamic color (Android 12+)</string>
+    <string name="default_mode">Default connection mode</string>
+    <string name="auto_start">Start on boot</string>
+    <string name="keep_awake">Keep CPU awake while connected</string>
+    <string name="split_tunnel">Split tunneling</string>
+    <string name="split_off">Off</string>
+    <string name="split_include">Only selected apps</string>
+    <string name="split_exclude">All except selected</string>
+    <string name="split_summary">%1$d apps selected</string>
+    <string name="scan_level">Scan level</string>
+    <string name="noize">Obfuscation profile</string>
+    <string name="noize_default">Default</string>
+    <string name="ip_version">IP version</string>
+    <string name="quick_reconnect">Quick reconnect to last gateway</string>
+    <string name="upstream">Upstream proxy</string>
+    <string name="upstream_hint">socks5://host:port or http://host:port</string>
+    <string name="route_block">Block list</string>
+    <string name="route_direct">Direct list</string>
+    <string name="route_hint">Comma separated: domains, IPs, CIDR, port:25, private</string>
+    <string name="dns">Custom DNS (inside the tunnel)</string>
+    <string name="dns_hint">1.1.1.1,1.0.0.1</string>
+    <string name="socks_port">Local SOCKS5 port</string>
+    <string name="http_proxy">Local HTTP proxy</string>
+    <string name="http_port">HTTP proxy port</string>
+    <string name="clear_cache">Clear cache and WARP identity</string>
+    <string name="clear_cache_warn">This deletes the saved WARP identity and all caches. A new device will be registered on the next connection.</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="cleared">Cleared</string>
+    <string name="restart_note">Changes apply on the next connection.</string>
+    <string name="open_logs">Diagnostic log</string>
+
+    <string name="copy">Copy</string>
+    <string name="share">Share</string>
+    <string name="clear">Clear</string>
+    <string name="copied">Copied</string>
+
+    <string name="app_version">App version</string>
+    <string name="core_version">Aether core version</string>
+    <string name="tunnel_version">hev-socks5-tunnel version</string>
+    <string name="github">GitHub</string>
+    <string name="telegram">Telegram channel</string>
+    <string name="license_title">License and credits</string>
+    <string name="license_text">8 VPN is free software released under the GNU AGPL-3.0.\n\nIt is built on Aether by CluvexStudio (AGPL-3.0), hev-socks5-tunnel by heiher (MIT), Psiphon tunnel core and the Tor pluggable transport Lyrebird. Thank you to all of these projects.</string>
+
+    <string name="notif_channel">VPN status</string>
+</resources>

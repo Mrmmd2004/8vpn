@@ -1,0 +1,379 @@
+package app.vpn8
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
+import android.net.VpnService
+import android.os.Build
+import android.os.ParcelFileDescriptor
+import android.os.PowerManager
+import android.os.SystemClock
+import hev.htproxy.TProxyService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
+
+/**
+ * Foreground service that owns the whole session:
+ *   apps -> TUN -> hev-socks5-tunnel -> local SOCKS5 -> Aether (+ Psiphon / Tor) -> internet
+ * In proxy-only mode the TUN and hev are skipped.
+ */
+class TunnelService : VpnService() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var job: Job? = null
+    private var statsJob: Job? = null
+    private var core: CoreProcess? = null
+    private var tun: ParcelFileDescriptor? = null
+    private var hevOn = false
+    private var foreground = false
+    private var stopping = false
+    private var wake: PowerManager.WakeLock? = null
+
+    override fun attachBaseContext(base: Context) = super.attachBaseContext(LocaleHelper.wrap(base))
+
+    override fun onCreate() {
+        super.onCreate()
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
+        )
+        scope.launch {
+            Engine.status.collect { st ->
+                if (foreground) nm.notify(NOTIF_ID, notification(textFor(st)))
+            }
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) stopSession() else startSession()
+        return START_NOT_STICKY
+    }
+
+    override fun onRevoke() {
+        stopSession()
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        teardownBlocking()
+        super.onDestroy()
+    }
+
+    // ---------------------------------------------------------------- session
+
+    private fun startSession() {
+        promote()
+        if (stopping || job?.isActive == true) return
+        val s = SettingsStore.current
+        Engine.logs.value = emptyList()
+        Engine.resetLive()
+        Engine.status.value = Status(Phase.CONNECTING, 1)
+        job = scope.launch { run(s) }
+    }
+
+    private fun stopSession() {
+        if (stopping) return
+        stopping = true
+        Engine.status.value = Status(Phase.STOPPING)
+        scope.launch {
+            job?.cancelAndJoin()
+            finish(null)
+            stopping = false
+        }
+    }
+
+    private suspend fun finish(error: String?) {
+        teardown()
+        Engine.resetLive()
+        Engine.status.value = Status(Phase.IDLE, error = error)
+        foreground = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private suspend fun run(s: Settings) {
+        val port = ArgBuilder.exitPort(s)
+        var failures = 0
+        var cycle = 0
+        var everUp = false
+        acquireWake(s)
+
+        while (currentCoroutineContext().isActive) {
+            val attempt = failures + 1
+            Engine.status.value = Status(if (everUp) Phase.RECONNECTING else Phase.CONNECTING, attempt)
+            Engine.log("Starting core, attempt $attempt of $MAX_TRIES" + if (cycle > 0) " (fresh scan)" else "")
+
+            if (startCore(s, port, fresh = cycle > 0)) {
+                if (s.vpnMode && tun == null && !bringUpTun(s, port)) {
+                    finish(getString(R.string.vpn_iface_failed))
+                    return
+                }
+                everUp = true
+                failures = 0
+                cycle = 0
+                Engine.status.value = Status(Phase.CONNECTED)
+                Engine.log("Connected via ${s.activeLabel()}")
+                scope.launch { fetchExit(port) }
+                monitor(s, port)
+                Engine.pingMs.value = null
+                Engine.exitInfo.value = null
+            } else {
+                failures++
+                if (failures >= MAX_TRIES) {
+                    failures = 0
+                    cycle++
+                    if (cycle >= 2) {
+                        stopCore()
+                        finish(getString(R.string.connect_failed))
+                        return
+                    }
+                    Engine.log("No luck. Dropping everything and starting over with a fresh scan")
+                }
+            }
+            stopCore()
+            delay(2000)
+        }
+    }
+
+    // ------------------------------------------------------------------- core
+
+    private suspend fun startCore(s: Settings, port: Int, fresh: Boolean): Boolean {
+        val c = CoreProcess(this)
+        core = c
+        try {
+            c.start(ArgBuilder.build(this, s, fresh))
+        } catch (e: Exception) {
+            Engine.log("Could not start core: ${e.message}")
+            return false
+        }
+        val limit = if (s.route.slow) 240_000L else 120_000L
+        val deadline = SystemClock.elapsedRealtime() + limit
+        while (currentCoroutineContext().isActive && SystemClock.elapsedRealtime() < deadline) {
+            if (!c.alive) return false
+            if (withContext(Dispatchers.IO) { portOpen(port) }) return true
+            delay(500)
+        }
+        return false
+    }
+
+    private suspend fun stopCore() {
+        val c = core ?: return
+        core = null
+        withContext(Dispatchers.IO) { c.stop() }
+    }
+
+    private fun portOpen(port: Int): Boolean = try {
+        Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 300) }
+        true
+    } catch (_: Exception) {
+        false
+    }
+
+    /** Returns when the link is considered dead: core exited, or three pings in a row failed. */
+    private suspend fun monitor(s: Settings, port: Int) {
+        val timeout = if (s.route.slow) 20_000 else 8_000
+        var fails = 0
+        while (currentCoroutineContext().isActive) {
+            if (core?.alive != true) {
+                Engine.log("Core is not running anymore")
+                return
+            }
+            val r = withContext(Dispatchers.IO) { Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", timeout) }
+            if (r != null) {
+                fails = 0
+                Engine.pingMs.value = r.first.toInt()
+            } else {
+                fails++
+                Engine.pingMs.value = null
+                Engine.log("Ping failed ($fails/3)")
+                if (fails >= 3) return
+            }
+            delay(5000)
+        }
+    }
+
+    private suspend fun fetchExit(port: Int) {
+        val r = withContext(Dispatchers.IO) { Socks.httpGet(port, "www.cloudflare.com", "/cdn-cgi/trace", 15_000) } ?: return
+        val map = r.second.lines().mapNotNull { l -> l.split("=", limit = 2).takeIf { it.size == 2 } }.associate { it[0] to it[1].trim() }
+        val ip = map["ip"] ?: return
+        Engine.exitInfo.value = if (map["loc"] != null) "$ip (${map["loc"]})" else ip
+    }
+
+    // -------------------------------------------------------------------- tun
+
+    private fun bringUpTun(s: Settings, port: Int): Boolean {
+        val b = Builder()
+            .setSession("8 VPN")
+            .setMtu(1500)
+            .addAddress("198.18.0.1", 32)
+            .addAddress("fc00::1", 128)
+            .addRoute("0.0.0.0", 0)
+            .addRoute("::", 0)
+            .addDnsServer("198.18.0.2") // answered by hev's mapped DNS, resolved remotely by the core
+
+        val apps = s.splitApps
+        try {
+            if (s.splitMode == "include" && apps.isNotEmpty()) {
+                apps.forEach { runCatching { b.addAllowedApplication(it) } }
+            } else {
+                // The core's own sockets must never loop back into the tunnel.
+                b.addDisallowedApplication(packageName)
+                if (s.splitMode == "exclude") apps.forEach { runCatching { b.addDisallowedApplication(it) } }
+            }
+        } catch (e: Exception) {
+            Engine.log("Split tunneling error: ${e.message}")
+        }
+
+        val fd = b.establish() ?: return false
+        tun = fd
+
+        val cfg = File(filesDir, "hev.yml")
+        cfg.writeText(
+            """
+            tunnel:
+              mtu: 1500
+              ipv4: 198.18.0.1
+              ipv6: 'fc00::1'
+            socks5:
+              port: $port
+              address: 127.0.0.1
+              udp: 'udp'
+            mapdns:
+              address: 198.18.0.2
+              port: 53
+              network: 100.64.0.0
+              netmask: 255.192.0.0
+              cache-size: 10000
+            misc:
+              log-level: warn
+            """.trimIndent()
+        )
+        hevOn = try {
+            TProxyService.TProxyStartService(cfg.path, fd.fd)
+        } catch (e: Throwable) {
+            Engine.log("hev-socks5-tunnel failed to start: ${e.message}")
+            false
+        }
+        if (!hevOn) {
+            fd.close()
+            tun = null
+            return false
+        }
+        startStats()
+        return true
+    }
+
+    private fun startStats() {
+        statsJob = scope.launch {
+            var lastTx = 0L
+            var lastRx = 0L
+            while (isActive) {
+                val st = try { TProxyService.TProxyGetStats() } catch (_: Throwable) { null }
+                if (st != null && st.size >= 4) {
+                    Engine.txBps.value = (st[1] - lastTx).coerceAtLeast(0)
+                    Engine.rxBps.value = (st[3] - lastRx).coerceAtLeast(0)
+                    lastTx = st[1]
+                    lastRx = st[3]
+                }
+                delay(1000)
+            }
+        }
+    }
+
+    // --------------------------------------------------------------- teardown
+
+    private suspend fun teardown() {
+        withContext(Dispatchers.IO) { teardownBlocking() }
+    }
+
+    private fun teardownBlocking() {
+        statsJob?.cancel()
+        statsJob = null
+        if (hevOn) {
+            runCatching { TProxyService.TProxyStopService() }
+            hevOn = false
+        }
+        runCatching { tun?.close() }
+        tun = null
+        core?.stop()
+        core = null
+        wake?.let { if (it.isHeld) it.release() }
+        wake = null
+    }
+
+    private fun acquireWake(s: Settings) {
+        if (!s.keepAwake) return
+        val pm = getSystemService(PowerManager::class.java)
+        wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "8vpn:core").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
+    }
+
+    // ----------------------------------------------------------- notification
+
+    private fun textFor(st: Status): String = when (st.phase) {
+        Phase.CONNECTED -> getString(R.string.connected) + " · " + SettingsStore.current.activeLabel()
+        Phase.CONNECTING -> getString(R.string.connecting)
+        Phase.RECONNECTING -> getString(R.string.reconnecting) + " " + getString(R.string.attempt_of, st.attempt, MAX_TRIES)
+        Phase.STOPPING -> getString(R.string.stopping)
+        Phase.IDLE -> getString(R.string.disconnected)
+    }
+
+    private fun notification(text: String): Notification {
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val stop = PendingIntent.getService(
+            this, 1, Intent(this, TunnelService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE
+        )
+        return Notification.Builder(this, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(text)
+            .setOngoing(true)
+            .setContentIntent(open)
+            .addAction(
+                Notification.Action.Builder(
+                    Icon.createWithResource(this, R.drawable.ic_stat), getString(R.string.disconnect), stop
+                ).build()
+            )
+            .build()
+    }
+
+    private fun promote() {
+        if (foreground) return
+        val n = notification(getString(R.string.connecting))
+        if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        else startForeground(NOTIF_ID, n)
+        foreground = true
+    }
+
+    companion object {
+        private const val CHANNEL = "vpn"
+        private const val NOTIF_ID = 8
+        const val ACTION_STOP = "app.vpn8.STOP"
+
+        fun start(ctx: Context) {
+            ctx.startForegroundService(Intent(ctx, TunnelService::class.java))
+        }
+
+        fun stop(ctx: Context) {
+            ctx.startService(Intent(ctx, TunnelService::class.java).setAction(ACTION_STOP))
+        }
+    }
+}
