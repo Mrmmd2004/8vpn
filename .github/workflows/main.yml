@@ -1,0 +1,179 @@
+name: Build APKs
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Upstream refs. Change them here if you want other versions.
+  AETHER_REF: v2.3.0
+  HEV_REF: 2.19.0
+
+jobs:
+  native:
+    name: Native libs (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { abi: arm64-v8a,   target: aarch64-linux-android,   goarch: arm64, goarm: "" }
+          - { abi: armeabi-v7a, target: armv7-linux-androideabi, goarch: arm,   goarm: "7" }
+          - { abi: x86_64,      target: x86_64-linux-android,    goarch: amd64, goarm: "" }
+    steps:
+      - name: Checkout (this repo)
+        uses: actions/checkout@v4
+
+      - name: Checkout Aether
+        uses: actions/checkout@v4
+        with:
+          repository: CluvexStudio/Aether
+          ref: ${{ env.AETHER_REF }}
+          path: aether-src
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Install Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build Psiphon and Lyrebird (Go)
+        run: |
+          out="$GITHUB_WORKSPACE/stage/pt"
+          mkdir -p "$out"
+          bash aether-src/pt-build.sh linux ${{ matrix.goarch }} "$out" "${{ matrix.goarm }}"
+          bash aether-src/psiphon-build.sh linux ${{ matrix.goarch }} "$out" "${{ matrix.goarm }}"
+          ls -l "$out"
+
+      - name: Build Aether (Rust, with Tor)
+        working-directory: aether-src/aether
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          under=$(echo "${{ matrix.target }}" | tr '-' '_')
+          export "BORING_BSSL_RUST_CPPLIB_${under}=static:-bundle=c++"
+          cargo ndk -t ${{ matrix.abi }} --platform 26 build --release --features tor
+          bin="target/${{ matrix.target }}/release/aether"
+          needed=$(readelf -d "$bin" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p')
+          echo "aether NEEDED: $needed"
+          if grep -qx 'libc++_shared.so' <<<"$needed"; then
+            echo "ERROR: aether still needs libc++_shared.so"; exit 1
+          fi
+
+      - name: Build hev-socks5-tunnel (JNI library)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          git clone --recursive --depth 1 --branch "$HEV_REF" https://github.com/heiher/hev-socks5-tunnel.git hev
+          cd hev
+          "$ANDROID_NDK_HOME/ndk-build" \
+            NDK_PROJECT_PATH="$PWD" \
+            APP_BUILD_SCRIPT="$PWD/Android.mk" \
+            NDK_APPLICATION_MK="$PWD/Application.mk" \
+            APP_ABI=${{ matrix.abi }} \
+            APP_PLATFORM=android-26 \
+            NDK_LIBS_OUT="$PWD/libs" \
+            NDK_OUT="$PWD/obj" \
+            -j"$(nproc)"
+          ls -l "libs/${{ matrix.abi }}"
+
+      - name: Stage native files
+        run: |
+          d="stage/jni/${{ matrix.abi }}"
+          mkdir -p "$d"
+          cp "aether-src/aether/target/${{ matrix.target }}/release/aether" "$d/libaether.so"
+          cp stage/pt/psiphon-tunnel-core "$d/libpsiphon.so"
+          cp stage/pt/lyrebird            "$d/liblyrebird.so"
+          cp "hev/libs/${{ matrix.abi }}/libhev-socks5-tunnel.so" "$d/libhev-socks5-tunnel.so"
+          ls -l "$d"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.abi }}
+          path: stage/jni
+          if-no-files-found: error
+
+  apk:
+    name: Build APKs
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: app/src/main/jniLibs
+          merge-multiple: true
+
+      - name: Check native libs
+        run: find app/src/main/jniLibs -type f | sort
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Decode keystore (optional)
+        env:
+          KS: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "No KEYSTORE_BASE64 secret: signing with the debug key."
+          fi
+
+      - name: Assemble release APKs
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Collect APKs
+        run: |
+          mkdir -p out
+          cd app/build/outputs/apk/release
+          ls -l
+          cp *armeabi-v7a*.apk ../../../../../out/8VPN-armeabi-v7a.apk
+          cp *arm64-v8a*.apk   ../../../../../out/8VPN-arm64-v8a.apk
+          cp *universal*.apk   ../../../../../out/8VPN-universal.apk
+          ls -l ../../../../../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 8VPN-apks
+          path: out/*.apk
+          if-no-files-found: error
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.apk
