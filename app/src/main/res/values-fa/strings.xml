@@ -78,6 +78,8 @@
     <string name="noize">پروفایل مبهم‌سازی</string>
     <string name="noize_default">پیش‌فرض</string>
     <string name="ip_version">نسخه IP</string>
+    <string name="max_tries">تعداد تلاش برای اتصال قبل از توقف (پیش‌فرض ۳)</string>
+    <string name="retry_delay">فاصله‌ی بین تلاش‌ها، میلی‌ثانیه (پیش‌فرض ۵۰۰)</string>
     <string name="quick_reconnect">اتصال سریع به آخرین گیت‌وی</string>
     <string name="upstream">پروکسی بالادستی</string>
     <string name="upstream_hint">socks5://host:port یا http://host:port</string>

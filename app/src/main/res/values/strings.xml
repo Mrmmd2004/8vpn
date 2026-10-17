@@ -83,6 +83,8 @@
     <string name="noize">Obfuscation profile</string>
     <string name="noize_default">Default</string>
     <string name="ip_version">IP version</string>
+    <string name="max_tries">Connection attempts before giving up (default 3)</string>
+    <string name="retry_delay">Delay between attempts, milliseconds (default 500)</string>
     <string name="quick_reconnect">Quick reconnect to last gateway</string>
     <string name="upstream">Upstream proxy</string>
     <string name="upstream_hint">socks5://host:port or http://host:port</string>

@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 const val TOR_PORT = 1820
 const val PSIPHON_PORT = 1821
-const val MAX_TRIES = 3
+const val DEFAULT_MAX_TRIES = 3
+const val DEFAULT_RETRY_DELAY_MS = 500
 
 enum class Family { AETHER, PSIPHON, TOR }
 
@@ -49,6 +50,8 @@ data class Settings(
     val scan: String = "balanced",
     val noize: String = "default",
     val quickReconnect: Boolean = true,
+    val maxTries: Int = DEFAULT_MAX_TRIES,           // connection attempts before giving up
+    val retryDelayMs: Int = DEFAULT_RETRY_DELAY_MS,  // pause between two attempts
     val ipVersion: String = "4",
     val upstream: String = "",
     val endpoint: String = "",  // custom gateway ip:port (outer hop); empty = scan
@@ -135,7 +138,11 @@ object SettingsStore {
         val socks = if (s.socksPort in 1024..65535 && s.socksPort != TOR_PORT && s.socksPort != PSIPHON_PORT) s.socksPort else 1819
         var http = if (s.httpPort in 1024..65535 && s.httpPort != TOR_PORT && s.httpPort != PSIPHON_PORT) s.httpPort else 1822
         if (http == socks) http = if (socks == 1822) 1823 else 1822
-        return s.copy(socksPort = socks, httpPort = http)
+        return s.copy(
+            socksPort = socks, httpPort = http,
+            maxTries = s.maxTries.coerceIn(1, 999),
+            retryDelayMs = s.retryDelayMs.coerceIn(100, 60_000),
+        )
     }
 
     private fun load(): Settings {
@@ -155,6 +162,8 @@ object SettingsStore {
             scan = str("scan", d.scan),
             noize = str("noize", d.noize),
             quickReconnect = prefs.getBoolean("quickReconnect", d.quickReconnect),
+            maxTries = prefs.getInt("maxTries", d.maxTries).coerceIn(1, 999),
+            retryDelayMs = prefs.getInt("retryDelayMs", d.retryDelayMs).coerceIn(100, 60_000),
             ipVersion = str("ipVersion", d.ipVersion),
             upstream = str("upstream", d.upstream),
             endpoint = str("endpoint", d.endpoint),
@@ -182,6 +191,7 @@ object SettingsStore {
             .putString("route", s.route.name).putString("protocol", s.protocol.name)
             .putString("carrier", s.carrier).putString("scan", s.scan).putString("noize", s.noize)
             .putBoolean("quickReconnect", s.quickReconnect).putString("ipVersion", s.ipVersion)
+            .putInt("maxTries", s.maxTries).putInt("retryDelayMs", s.retryDelayMs)
             .putString("upstream", s.upstream).putString("endpoint", s.endpoint).putString("endpoint2", s.endpoint2)
             .putString("routeBlock", s.routeBlock)
             .putString("routeDirect", s.routeDirect).putString("dns", s.dns)

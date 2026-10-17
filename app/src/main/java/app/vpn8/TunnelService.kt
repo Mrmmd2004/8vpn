@@ -132,7 +132,6 @@ class TunnelService : VpnService() {
         var failures = 0
         var cycle = 0
         var everUp = false
-        var autoRescans = 0
         var forceFresh = false
         acquireWake(s)
 
@@ -141,7 +140,7 @@ class TunnelService : VpnService() {
             Engine.status.value = Status(if (everUp) Phase.RECONNECTING else Phase.CONNECTING, attempt)
             val fresh = cycle > 0 || forceFresh
             forceFresh = false
-            Engine.log("Starting core, attempt $attempt of $MAX_TRIES" + if (fresh) " (fresh scan)" else "")
+            Engine.log("Starting core, attempt $attempt of ${s.maxTries}" + if (fresh) " (fresh scan)" else "")
 
             if (startCore(s, port, fresh = fresh)) {
                 if (s.vpnMode && tun == null && !bringUpTun(s, port)) {
@@ -155,12 +154,9 @@ class TunnelService : VpnService() {
                 Engine.log("Connected via ${s.activeLabel()}")
                 scope.launch { fetchExit(port) }
                 val speedJob = scope.launch {
-                    val canRescan = s.route.family == Family.AETHER && !s.route.noWarp && autoRescans < MAX_AUTO_RESCANS
-                    if (checkSpeed(port) && canRescan) {
-                        autoRescans++
-                        Engine.log("Link is too slow, scanning for a better gateway ($autoRescans/$MAX_AUTO_RESCANS)")
-                        rescanRequested = true
-                    }
+                    // Only measures and shows the speed. It no longer restarts the core: a restart
+                    // in the middle of a user's download cuts that download.
+                    checkSpeed(port)
                 }
                 monitor(s, port)
                 speedJob.cancel()
@@ -186,7 +182,7 @@ class TunnelService : VpnService() {
                 }
             } else {
                 failures++
-                if (failures >= MAX_TRIES) {
+                if (failures >= s.maxTries) {
                     failures = 0
                     cycle++
                     if (cycle >= 2) {
@@ -198,7 +194,7 @@ class TunnelService : VpnService() {
                 }
             }
             stopCore()
-            delay(2000)
+            delay(s.retryDelayMs.toLong())
         }
     }
 
@@ -259,6 +255,10 @@ class TunnelService : VpnService() {
             if (r != null) {
                 fails = 0
                 Engine.pingMs.value = r.first.toInt()
+            } else if (Engine.rxBps.value > 0) {
+                // The probe is starved by a busy download, but data is arriving: the link is alive.
+                fails = 0
+                Engine.pingMs.value = null
             } else {
                 fails++
                 Engine.pingMs.value = null
@@ -312,9 +312,16 @@ class TunnelService : VpnService() {
             .setSession("8 VPN")
             .setMtu(1500)
             .addAddress("198.18.0.1", 32)
-            .addAddress("fc00::1", 128)
             .addRoute("0.0.0.0", 0)
-            .addRoute("::", 0)
+
+        // IPv6 on the TUN only when the exit can carry it. With an IPv4-only exit (the default, and
+        // always for Psiphon/Tor), an IPv6 address + ::/0 route makes apps connect to the AAAA
+        // answer first; the core cannot dial it and downloads stall or get cut.
+        val v6 = s.ipVersion != "4" && !s.route.slow
+        if (v6) {
+            b.addAddress("fc00::1", 128)
+            b.addRoute("::", 0)
+        }
 
         // Real resolvers, reached through the tunnel (UDP/53 -> hev -> SOCKS UDP ASSOCIATE -> core).
         // Apps and Android then cache the answers and connect by IP, instead of every new TCP
@@ -352,7 +359,8 @@ class TunnelService : VpnService() {
 
         val cfg = File(filesDir, "hev.yml")
         val yml = ArrayList<String>()
-        yml += listOf("tunnel:", "  mtu: 1500", "  ipv4: 198.18.0.1", "  ipv6: 'fc00::1'")
+        yml += listOf("tunnel:", "  mtu: 1500", "  ipv4: 198.18.0.1")
+        if (v6) yml += "  ipv6: 'fc00::1'"
         yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1", "  udp: 'udp'")
         if (s.route.slow) {
             yml += listOf(
@@ -360,7 +368,13 @@ class TunnelService : VpnService() {
                 "  netmask: 255.192.0.0", "  cache-size: 10000"
             )
         }
-        yml += listOf("misc:", "  log-level: warn")
+        // Bigger TCP buffer and longer timeouts than hev's defaults (64 KB / 5 s connect), which
+        // are too tight for a WARP link. Keys unknown to a given hev version are ignored.
+        yml += listOf(
+            "misc:", "  tcp-buffer-size: 262144", "  connect-timeout: ${if (s.route.slow) 30000 else 15000}",
+            "  tcp-read-write-timeout: 300000", "  udp-read-write-timeout: 60000",
+            "  max-session-count: 0", "  log-level: warn"
+        )
         cfg.writeText(yml.joinToString("\n") + "\n")
         hevOn = try {
             TProxyService.TProxyStartService(cfg.path, fd.fd)
@@ -485,7 +499,7 @@ class TunnelService : VpnService() {
     private fun textFor(st: Status): String = when (st.phase) {
         Phase.CONNECTED -> getString(R.string.connected) + " · " + SettingsStore.current.activeLabel()
         Phase.CONNECTING -> getString(R.string.connecting)
-        Phase.RECONNECTING -> getString(R.string.reconnecting) + " " + getString(R.string.attempt_of, st.attempt, MAX_TRIES)
+        Phase.RECONNECTING -> getString(R.string.reconnecting) + " " + getString(R.string.attempt_of, st.attempt, SettingsStore.current.maxTries)
         Phase.STOPPING -> getString(R.string.stopping)
         Phase.IDLE -> getString(R.string.disconnected)
     }
@@ -522,7 +536,6 @@ class TunnelService : VpnService() {
         private const val NOTIF_ID = 8
         const val ACTION_STOP = "app.vpn8.STOP"
         const val ACTION_RESCAN = "app.vpn8.RESCAN"
-        private const val MAX_AUTO_RESCANS = 2
         private const val SLOW_BPS = 150_000L // below ~150 KB/s the link is treated as unusable
 
         fun rescan(ctx: Context) {

@@ -218,7 +218,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         }
         val showAttempt = st.phase == Phase.RECONNECTING || (st.phase == Phase.CONNECTING && st.attempt > 1)
         if (showAttempt) {
-            Text(stringResource(R.string.attempt_of, st.attempt, MAX_TRIES), style = MaterialTheme.typography.bodySmall, color = c.tertiary)
+            Text(stringResource(R.string.attempt_of, st.attempt, s.maxTries), style = MaterialTheme.typography.bodySmall, color = c.tertiary)
         } else if (idle && st.error != null) {
             Text(st.error!!, style = MaterialTheme.typography.bodySmall, color = c.error, textAlign = TextAlign.Center)
         } else if (idle) {
@@ -305,11 +305,6 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             }
             if (panelShown) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Label(stringResource(R.string.default_mode))
-                    Chips(
-                        listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)),
-                        s.vpnMode, idle
-                    ) { v -> up { it.copy(vpnMode = v) } }
                     FamilyPanel(s.route.family, s, idle)
                 }
             }

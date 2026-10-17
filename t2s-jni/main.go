@@ -68,6 +68,10 @@ func t2s_start(fd C.int, port C.int, mtu C.int) (rc C.int) {
 		MTU:        m,
 		LogLevel:   "silent",
 		UDPTimeout: 30 * time.Second,
+		// Same TCP buffers as the old FCAE build (256 KB, no auto-tuning).
+		TCPSendBufferSize:        "256k",
+		TCPReceiveBufferSize:     "256k",
+		TCPModerateReceiveBuffer: false,
 	})
 	engine.Start()
 	installNonFatalLogger()
