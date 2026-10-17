@@ -58,6 +58,7 @@ data class Settings(
     val tcpBufferKb: Int = 256,    // TCP buffer of the TUN engine, in KB
     val freshAfterDrop: Boolean = true, // after a real drop, scan for a new gateway instead of reusing the last one
     val perf: String = "auto",     // Aether resource profile: auto | low | medium | high
+    val warpCore: String = "v21",   // core of the plain WARP route: v21 (Aether 2.1.0) or v23 (Aether 2.3.0)
     val extraArgs: String = "",    // extra Aether command line arguments, appended last
     val ipVersion: String = "4",
     val upstream: String = "",
@@ -199,6 +200,7 @@ object SettingsStore {
             tcpBufferKb = prefs.getInt("tcpBufferKb", d.tcpBufferKb),
             freshAfterDrop = prefs.getBoolean("freshAfterDrop", d.freshAfterDrop),
             perf = str("perf", d.perf).takeIf { it in setOf("auto", "low", "medium", "high") } ?: d.perf,
+            warpCore = str("warpCore", d.warpCore).takeIf { it in setOf("v21", "v23") } ?: d.warpCore,
             extraArgs = str("extraArgs", d.extraArgs),
             ipVersion = str("ipVersion", d.ipVersion),
             upstream = str("upstream", d.upstream),
@@ -230,7 +232,7 @@ object SettingsStore {
             .putInt("maxTries", s.maxTries).putInt("retryDelayMs", s.retryDelayMs)
             .putInt("pingFails", s.pingFails).putInt("pingIntervalSec", s.pingIntervalSec)
             .putInt("tunMtu", s.tunMtu).putInt("tcpBufferKb", s.tcpBufferKb)
-            .putBoolean("freshAfterDrop", s.freshAfterDrop).putString("perf", s.perf).putString("extraArgs", s.extraArgs)
+            .putBoolean("freshAfterDrop", s.freshAfterDrop).putString("perf", s.perf).putString("extraArgs", s.extraArgs).putString("warpCore", s.warpCore)
             .putString("upstream", s.upstream).putString("endpoint", s.endpoint).putString("endpoint2", s.endpoint2)
             .putString("routeBlock", s.routeBlock)
             .putString("routeDirect", s.routeDirect).putString("dns", s.dns)

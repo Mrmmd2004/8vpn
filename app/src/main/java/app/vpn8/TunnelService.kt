@@ -258,7 +258,7 @@ class TunnelService : VpnService() {
         val c = CoreProcess(this)
         core = c
         try {
-            c.start(ArgBuilder.build(this, s, fresh, psiSlot))
+            c.start(ArgBuilder.build(this, s, fresh, psiSlot), s.route, s.warpCore)
         } catch (e: Exception) {
             Engine.log("Could not start core: ${e.message}")
             return false

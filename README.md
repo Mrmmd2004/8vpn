@@ -47,3 +47,11 @@ If the Aether tag is not named `v2.3.0`, change it there.
 ---
 
 
+
+## Two cores in one APK
+
+- `libaether.so` = Aether **v2.1.0** (`AETHER_REF`), used only by the plain Aether / WARP route. It downloads well.
+- `libaether3.so` = Aether **v2.3.0** with Tor (`AETHER3_REF`), used by every Psiphon and Tor route, together with
+  `libpsiphon.so` and `liblyrebird.so` built from the same v2.3.0 tree.
+- The choice is made in `Cores.libFor()` in `CoreProcess.kt`. If one of the two files is missing the app uses the other.
+- Both refs can be changed when you start the workflow by hand (`aether_ref`, `aether3_ref`).

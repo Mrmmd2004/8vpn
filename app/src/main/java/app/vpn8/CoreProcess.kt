@@ -5,7 +5,26 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-/** Runs the Aether binary (shipped as libaether.so) as a child process. */
+/**
+ * Two Aether builds ship in the APK:
+ *  - libaether.so  = Aether 2.1.0, used for the plain WARP route (the one that downloads well);
+ *  - libaether3.so = Aether 2.3.0 with Tor, used for every Psiphon / Tor route together with the
+ *    libpsiphon.so / liblyrebird.so built from the same tree.
+ * If one of them is missing in the APK the other one is used, so the app still connects.
+ */
+object Cores {
+    const val WARP = "libaether.so"
+    const val PT = "libaether3.so"
+
+    fun libFor(ctx: Context, route: Route, warpCore: String = "v21"): String {
+        val nl = ctx.applicationInfo.nativeLibraryDir
+        val want = if (route == Route.AETHER && warpCore != "v23") WARP else PT
+        val other = if (want == WARP) PT else WARP
+        return if (File(nl, want).exists()) want else if (File(nl, other).exists()) other else want
+    }
+}
+
+/** Runs an Aether binary (libaether.so or libaether3.so) as a child process. */
 class CoreProcess(private val ctx: Context) {
     private var proc: Process? = null
 
@@ -15,19 +34,25 @@ class CoreProcess(private val ctx: Context) {
     /** Psiphon could not open its database (a leftover helper still holds the lock). */
     @Volatile var datastoreFailed = false
 
-    fun start(args: List<String>) {
+    fun start(allArgs: List<String>, route: Route, warpCore: String = "v21") {
         val nl = ctx.applicationInfo.nativeLibraryDir
+        val lib = Cores.libFor(ctx, route, warpCore)
+        // NAME=value tokens in the extra arguments are environment variables, not flags.
+        val envRe = Regex("^[A-Z][A-Z0-9_]*=.*")
+        val args = allArgs.filterNot { envRe.matches(it) }
+        val extraEnv = allArgs.filter { envRe.matches(it) }
         val dir = File(ctx.filesDir, "aether").apply { mkdirs() }
-        val pb = ProcessBuilder(listOf("$nl/libaether.so") + args)
+        val pb = ProcessBuilder(listOf("$nl/$lib") + args)
             .directory(dir)
             .redirectErrorStream(true)
         pb.environment().apply {
             put("HOME", dir.path)
             put("TMPDIR", ctx.cacheDir.path)
             put("AETHER_LOG_LEVEL", "info")
+            for (kv in extraEnv) put(kv.substringBefore('='), kv.substringAfter('='))
             put("AETHER_TOR_PT", "obfs4=$nl/liblyrebird.so;webtunnel=$nl/liblyrebird.so")
         }
-        Engine.log("exec: aether ${args.joinToString(" ")}")
+        Engine.log("exec: $lib ${args.joinToString(" ")}")
         val p = pb.start()
         proc = p
         thread(isDaemon = true, name = "aether-log") {
@@ -70,7 +95,7 @@ class CoreProcess(private val ctx: Context) {
  * uid are visible and killable, and only ones running our own native libraries are matched.
  */
 object Leftovers {
-    private val names = listOf("libaether.so", "libpsiphon.so", "liblyrebird.so")
+    private val names = listOf("libaether.so", "libaether3.so", "libpsiphon.so", "liblyrebird.so")
 
     fun kill(): Int {
         val me = android.os.Process.myPid()
