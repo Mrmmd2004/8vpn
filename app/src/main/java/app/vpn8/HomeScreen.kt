@@ -24,6 +24,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -36,6 +38,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -170,6 +173,21 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         )
     }
 
+    val c = MaterialTheme.colorScheme
+    val title = when (st.phase) {
+        Phase.IDLE -> R.string.disconnected
+        Phase.CONNECTING -> R.string.connecting
+        Phase.CONNECTED -> R.string.connected
+        Phase.RECONNECTING -> R.string.reconnecting
+        Phase.STOPPING -> R.string.stopping
+    }
+    val dot = when (st.phase) {
+        Phase.CONNECTED -> c.primary
+        Phase.IDLE -> c.outline
+        else -> c.tertiary
+    }
+    val live = st.phase == Phase.CONNECTED
+
     Column(
         Modifier.windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -180,11 +198,80 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             TextButton(onClick = openSettings) { Text("⚙ " + stringResource(R.string.settings)) }
         }
 
-        // Aether / Psiphon / Tor switcher
+        // ---- Hero: connect button with a static halo (no extra animation) and the status line
+        Spacer(Modifier.height(20.dp))
+        Box(contentAlignment = Alignment.Center) {
+            Box(Modifier.size(232.dp).clip(CircleShape).background(if (live) c.primary.copy(alpha = 0.10f) else Color.Transparent))
+            Box(Modifier.size(206.dp).clip(CircleShape).background(if (live) c.primary.copy(alpha = 0.10f) else Color.Transparent))
+            ConnectButton(st.phase, ::toggle)
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+            Spacer(Modifier.size(8.dp))
+            Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
+        }
+        val showAttempt = st.phase == Phase.RECONNECTING || (st.phase == Phase.CONNECTING && st.attempt > 1)
+        if (showAttempt) {
+            Text(stringResource(R.string.attempt_of, st.attempt, MAX_TRIES), color = c.tertiary)
+        } else if (idle && st.error != null) {
+            Text(st.error!!, color = c.error, textAlign = TextAlign.Center)
+        } else if (idle) {
+            Text(stringResource(R.string.tap_to_connect), color = c.onSurfaceVariant)
+        } else if (live) {
+            Text(
+                s.activeLabel() + (exit?.let { "  ·  $it" } ?: ""),
+                style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant, textAlign = TextAlign.Center
+            )
+        }
+
+        // ---- Stat tiles
+        Spacer(Modifier.height(20.dp))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(stringResource(R.string.ping), ping?.let { stringResource(R.string.ms_fmt, it) } ?: "—", Modifier.weight(1f).fillMaxHeight())
+            StatTile(stringResource(R.string.download), if (s.vpnMode && live) fmtRate(rx) else "—", Modifier.weight(1f).fillMaxHeight())
+            StatTile(stringResource(R.string.upload), if (s.vpnMode && live) fmtRate(tx) else "—", Modifier.weight(1f).fillMaxHeight())
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(
+                stringResource(R.string.link_speed),
+                if (live) speed?.let { fmtRate(it) } ?: "…" else "—",
+                Modifier.weight(1f).fillMaxHeight()
+            )
+            StatTile(stringResource(R.string.protocol), if (live) s.activeLabel() else "—", Modifier.weight(2f).fillMaxHeight())
+        }
+        if (!s.vpnMode) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.proxy_info, "127.0.0.1:${s.socksPort}") +
+                    if (s.httpEnabled) "   " + stringResource(R.string.http_info, "127.0.0.1:${s.httpPort}") else "",
+                style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace
+            )
+        }
+
+        // ---- Actions
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing && live) {
+                Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
+            }
+            if (live && s.route.family == Family.AETHER) {
+                androidx.compose.material3.OutlinedButton(onClick = { TunnelService.rescan(ctx) }) {
+                    Text(stringResource(R.string.rescan))
+                }
+            }
+        }
+        testResult?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant)
+        }
+
+        // ---- Core / protocol settings (unchanged logic)
+        Spacer(Modifier.height(16.dp))
         val families = listOf(
             Family.AETHER to R.string.core_aether, Family.PSIPHON to R.string.core_psiphon, Family.TOR to R.string.core_tor
         )
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             families.forEachIndexed { idx, (fam, label) ->
                 SegmentedButton(
                     selected = s.route.family == fam,
@@ -198,90 +285,13 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                 ) { Text(stringResource(label)) }
             }
         }
-
-        // Expandable settings panel for the selected family
-        Card(
-            Modifier.fillMaxWidth().padding(top = 12.dp).animateContentSize(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        Column(
+            Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(c.surfaceContainer)
+                .animateContentSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            AnimatedContent(
-                targetState = s.route.family,
-                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
-                label = "panel"
-            ) { fam ->
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FamilyPanel(fam, s, idle)
-                    if (!idle) Text(stringResource(R.string.locked_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-        ConnectButton(st.phase, ::toggle)
-        Spacer(Modifier.height(16.dp))
-
-        val title = when (st.phase) {
-            Phase.IDLE -> R.string.disconnected
-            Phase.CONNECTING -> R.string.connecting
-            Phase.CONNECTED -> R.string.connected
-            Phase.RECONNECTING -> R.string.reconnecting
-            Phase.STOPPING -> R.string.stopping
-        }
-        Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
-        val showAttempt = st.phase == Phase.RECONNECTING || (st.phase == Phase.CONNECTING && st.attempt > 1)
-        if (showAttempt) {
-            Text(stringResource(R.string.attempt_of, st.attempt, MAX_TRIES), color = MaterialTheme.colorScheme.tertiary)
-        } else if (idle && st.error != null) {
-            Text(st.error!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-        } else if (idle) {
-            Text(stringResource(R.string.tap_to_connect), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing && st.phase == Phase.CONNECTED) {
-                Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
-            }
-            if (st.phase == Phase.CONNECTED && s.route.family == Family.AETHER) {
-                androidx.compose.material3.OutlinedButton(onClick = { TunnelService.rescan(ctx) }) {
-                    Text(stringResource(R.string.rescan))
-                }
-            }
-        }
-        testResult?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Card(
-            Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth()) {
-                    Stat(stringResource(R.string.ping), ping?.let { stringResource(R.string.ms_fmt, it) } ?: "—", Modifier.weight(1f))
-                    Stat(stringResource(R.string.download), if (s.vpnMode && st.phase == Phase.CONNECTED) fmtRate(rx) else "—", Modifier.weight(1f))
-                    Stat(stringResource(R.string.upload), if (s.vpnMode && st.phase == Phase.CONNECTED) fmtRate(tx) else "—", Modifier.weight(1f))
-                }
-                Row(Modifier.fillMaxWidth()) {
-                    Stat(stringResource(R.string.protocol), if (st.phase == Phase.CONNECTED) s.activeLabel() else "—", Modifier.weight(1f))
-                    Stat(stringResource(R.string.exit_ip), exit ?: "—", Modifier.weight(1f))
-                }
-                Row(Modifier.fillMaxWidth()) {
-                    Stat(
-                        stringResource(R.string.link_speed),
-                        if (st.phase == Phase.CONNECTED) speed?.let { fmtRate(it) } ?: "…" else "—",
-                        Modifier.weight(1f)
-                    )
-                }
-                if (!s.vpnMode) {
-                    Text(
-                        stringResource(R.string.proxy_info, "127.0.0.1:${s.socksPort}") +
-                            if (s.httpEnabled) "   " + stringResource(R.string.http_info, "127.0.0.1:${s.httpPort}") else "",
-                        style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace
-                    )
-                }
-            }
+            FamilyPanel(s.route.family, s, idle)
+            if (!idle) Text(stringResource(R.string.locked_hint), style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
         }
 
         if (logs.isNotEmpty()) {
@@ -290,7 +300,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                 logs.takeLast(3).forEach {
                     Text(
                         it, maxLines = 1, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = c.onSurfaceVariant
                     )
                 }
             }
@@ -300,10 +310,14 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
 }
 
 @Composable
-private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier) {
+private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 2)
     }
 }
 
