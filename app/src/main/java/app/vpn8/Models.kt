@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 const val TOR_PORT = 1820
 const val PSIPHON_PORT = 1821
-const val DEFAULT_MAX_TRIES = 3
-const val DEFAULT_RETRY_DELAY_MS = 500
+const val DEFAULT_MAX_TRIES = 5
+const val DEFAULT_RETRY_DELAY_MS = 1000
 
 enum class Family { AETHER, PSIPHON, TOR }
 
@@ -47,12 +47,12 @@ data class Settings(
     val route: Route = Route.AETHER,
     val protocol: Protocol = Protocol.WIREGUARD,
     val carrier: String = "h2", // MASQUE transport: HTTP/2 by default
-    val scan: String = "balanced",
+    val scan: String = "turbo",
     val noize: String = "default",
     val quickReconnect: Boolean = true,
     val maxTries: Int = DEFAULT_MAX_TRIES,           // connection attempts before giving up
     val retryDelayMs: Int = DEFAULT_RETRY_DELAY_MS,  // pause between two attempts
-    val pingFails: Int = 3,        // failed probes in a row before the link counts as dead
+    val pingFails: Int = 4,        // failed probes in a row before the link counts as dead
     val pingIntervalSec: Int = 5,  // seconds between two probes
     val tunMtu: Int = 1500,        // MTU of the local TUN device (not the tunnel MTU)
     val tcpBufferKb: Int = 256,    // TCP buffer of the TUN engine, in KB
@@ -132,6 +132,24 @@ object SettingsStore {
             _flow.value = next
             save(next)
             prefs.edit().putInt("schema", 6).apply()
+        }
+        if (prefs.getInt("schema", 0) < 8) {
+            // One-time tuning reset for weak / unstable networks. Language, theme, ports and
+            // split-tunnel apps are kept; everything that shapes the connection is reset.
+            val d = Settings()
+            val next = _flow.value.copy(
+                route = d.route, protocol = d.protocol, carrier = d.carrier,
+                scan = d.scan, noize = d.noize, ipVersion = d.ipVersion,
+                quickReconnect = d.quickReconnect, freshAfterDrop = d.freshAfterDrop,
+                maxTries = d.maxTries, retryDelayMs = d.retryDelayMs,
+                pingFails = d.pingFails, pingIntervalSec = d.pingIntervalSec,
+                tunEngine = d.tunEngine, tunMtu = d.tunMtu, tcpBufferKb = d.tcpBufferKb,
+                perf = d.perf, dns = d.dns, endpoint = d.endpoint, endpoint2 = d.endpoint2,
+                extraArgs = d.extraArgs,
+            )
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 8).apply()
         }
     }
 
