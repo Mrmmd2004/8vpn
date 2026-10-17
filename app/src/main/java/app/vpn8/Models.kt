@@ -52,6 +52,10 @@ data class Settings(
     val quickReconnect: Boolean = true,
     val maxTries: Int = DEFAULT_MAX_TRIES,           // connection attempts before giving up
     val retryDelayMs: Int = DEFAULT_RETRY_DELAY_MS,  // pause between two attempts
+    val pingFails: Int = 3,        // failed probes in a row before the link counts as dead
+    val pingIntervalSec: Int = 5,  // seconds between two probes
+    val tunMtu: Int = 1500,        // MTU of the local TUN device (not the tunnel MTU)
+    val tcpBufferKb: Int = 256,    // TCP buffer of the TUN engine, in KB
     val ipVersion: String = "4",
     val upstream: String = "",
     val endpoint: String = "",  // custom gateway ip:port (outer hop); empty = scan
@@ -138,11 +142,7 @@ object SettingsStore {
         val socks = if (s.socksPort in 1024..65535 && s.socksPort != TOR_PORT && s.socksPort != PSIPHON_PORT) s.socksPort else 1819
         var http = if (s.httpPort in 1024..65535 && s.httpPort != TOR_PORT && s.httpPort != PSIPHON_PORT) s.httpPort else 1822
         if (http == socks) http = if (socks == 1822) 1823 else 1822
-        return s.copy(
-            socksPort = socks, httpPort = http,
-            maxTries = s.maxTries.coerceIn(1, 999),
-            retryDelayMs = s.retryDelayMs.coerceIn(100, 60_000),
-        )
+        return s.copy(socksPort = socks, httpPort = http)
     }
 
     private fun load(): Settings {
@@ -162,8 +162,12 @@ object SettingsStore {
             scan = str("scan", d.scan),
             noize = str("noize", d.noize),
             quickReconnect = prefs.getBoolean("quickReconnect", d.quickReconnect),
-            maxTries = prefs.getInt("maxTries", d.maxTries).coerceIn(1, 999),
-            retryDelayMs = prefs.getInt("retryDelayMs", d.retryDelayMs).coerceIn(100, 60_000),
+            maxTries = prefs.getInt("maxTries", d.maxTries),
+            retryDelayMs = prefs.getInt("retryDelayMs", d.retryDelayMs),
+            pingFails = prefs.getInt("pingFails", d.pingFails),
+            pingIntervalSec = prefs.getInt("pingIntervalSec", d.pingIntervalSec),
+            tunMtu = prefs.getInt("tunMtu", d.tunMtu),
+            tcpBufferKb = prefs.getInt("tcpBufferKb", d.tcpBufferKb),
             ipVersion = str("ipVersion", d.ipVersion),
             upstream = str("upstream", d.upstream),
             endpoint = str("endpoint", d.endpoint),
@@ -192,6 +196,8 @@ object SettingsStore {
             .putString("carrier", s.carrier).putString("scan", s.scan).putString("noize", s.noize)
             .putBoolean("quickReconnect", s.quickReconnect).putString("ipVersion", s.ipVersion)
             .putInt("maxTries", s.maxTries).putInt("retryDelayMs", s.retryDelayMs)
+            .putInt("pingFails", s.pingFails).putInt("pingIntervalSec", s.pingIntervalSec)
+            .putInt("tunMtu", s.tunMtu).putInt("tcpBufferKb", s.tcpBufferKb)
             .putString("upstream", s.upstream).putString("endpoint", s.endpoint).putString("endpoint2", s.endpoint2)
             .putString("routeBlock", s.routeBlock)
             .putString("routeDirect", s.routeDirect).putString("dns", s.dns)
@@ -202,3 +208,12 @@ object SettingsStore {
             .apply()
     }
 }
+
+// Values typed in Settings are kept as typed (so the field is not rewritten while the user types);
+// they are clamped to a safe range only where they are used.
+fun Settings.tries() = maxTries.coerceIn(1, 999)
+fun Settings.retryMs() = retryDelayMs.coerceIn(100, 60_000)
+fun Settings.pingLimit() = pingFails.coerceIn(1, 20)
+fun Settings.pingEverySec() = pingIntervalSec.coerceIn(1, 60)
+fun Settings.mtu() = tunMtu.coerceIn(1280, 9000)
+fun Settings.tcpKb() = tcpBufferKb.coerceIn(16, 4096)

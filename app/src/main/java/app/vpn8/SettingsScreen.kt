@@ -115,6 +115,8 @@ fun SettingsScreen(
             SwitchRow(stringResource(R.string.quick_reconnect), s.quickReconnect) { v -> up { it.copy(quickReconnect = v) } }
             NumberRow(stringResource(R.string.max_tries), s.maxTries) { v -> up { it.copy(maxTries = v) } }
             NumberRow(stringResource(R.string.retry_delay), s.retryDelayMs) { v -> up { it.copy(retryDelayMs = v) } }
+            NumberRow(stringResource(R.string.ping_fails), s.pingFails) { v -> up { it.copy(pingFails = v) } }
+            NumberRow(stringResource(R.string.ping_interval), s.pingIntervalSec) { v -> up { it.copy(pingIntervalSec = v) } }
             TextRow(
                 stringResource(if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) R.string.endpoint_outer else R.string.endpoint),
                 s.endpoint, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint)
@@ -151,6 +153,9 @@ fun SettingsScreen(
 
             // ---- Advanced
             SectionTitle(stringResource(R.string.sec_advanced))
+            NumberRow(stringResource(R.string.tun_mtu), s.tunMtu) { v -> up { it.copy(tunMtu = v) } }
+            NumberRow(stringResource(R.string.tcp_buffer), s.tcpBufferKb) { v -> up { it.copy(tcpBufferKb = v) } }
+            Text(stringResource(R.string.tunnel_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             NumberRow(stringResource(R.string.socks_port), s.socksPort) { v -> up { it.copy(socksPort = v) } }
             SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
             if (s.httpEnabled) NumberRow(stringResource(R.string.http_port), s.httpPort) { v -> up { it.copy(httpPort = v) } }

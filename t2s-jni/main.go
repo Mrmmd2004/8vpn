@@ -41,7 +41,7 @@ func installNonFatalLogger() {
 }
 
 //export t2s_start
-func t2s_start(fd C.int, port C.int, mtu C.int) (rc C.int) {
+func t2s_start(fd C.int, port C.int, mtu C.int, bufKb C.int) (rc C.int) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -56,6 +56,11 @@ func t2s_start(fd C.int, port C.int, mtu C.int) (rc C.int) {
 		m = 1500
 	}
 
+	kb := int(bufKb)
+	if kb < 16 || kb > 4096 {
+		kb = 256
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			rc = -3
@@ -68,9 +73,9 @@ func t2s_start(fd C.int, port C.int, mtu C.int) (rc C.int) {
 		MTU:        m,
 		LogLevel:   "silent",
 		UDPTimeout: 30 * time.Second,
-		// Same TCP buffers as the old FCAE build (256 KB, no auto-tuning).
-		TCPSendBufferSize:        "256k",
-		TCPReceiveBufferSize:     "256k",
+		// TCP buffers from Settings (default 256 KB, same as the old FCAE build), no auto-tuning.
+		TCPSendBufferSize:        fmt.Sprintf("%dk", kb),
+		TCPReceiveBufferSize:     fmt.Sprintf("%dk", kb),
 		TCPModerateReceiveBuffer: false,
 	})
 	engine.Start()

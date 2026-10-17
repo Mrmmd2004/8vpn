@@ -83,6 +83,17 @@
     <string name="noize">Obfuscation profile</string>
     <string name="noize_default">Default</string>
     <string name="ip_version">IP version</string>
+    <string name="ping_fails">Failed pings in a row before reconnecting (default 3)</string>
+    <string name="ping_interval">Seconds between pings (default 5)</string>
+    <string name="tun_mtu">TUN MTU, 1280-9000 (default 1500)</string>
+    <string name="tcp_buffer">TCP buffer, KB, 16-4096 (default 256)</string>
+    <string name="tunnel_note">MTU and TCP buffer apply on the next connection. Leave them at the defaults unless a network needs other values.</string>
+    <string name="last_drop">Last drop: %1$s</string>
+    <string name="reason_pings">%1$d pings in a row failed</string>
+    <string name="reason_core">the core stopped running</string>
+    <string name="reason_network">the network changed (Wi-Fi / mobile data)</string>
+    <string name="reason_rescan">a rescan was requested</string>
+    <string name="reason_start">could not connect (attempt %1$d)</string>
     <string name="max_tries">Connection attempts before giving up (default 3)</string>
     <string name="retry_delay">Delay between attempts, milliseconds (default 500)</string>
     <string name="quick_reconnect">Quick reconnect to last gateway</string>

@@ -15,8 +15,10 @@ apps -> VpnService (TUN) -> hev-socks5-tunnel -> SOCKS5 127.0.0.1:1819 -> Aether
 * The Aether / Psiphon / Tor switcher on the home screen builds the matching Aether flags
   (`--psiphon`, `--psiphon-only`, `--psiphon-reverse`, `--tor`, `--tor-only`, `--tor-reverse`).
 * Ports: SOCKS5 `1819` (configurable), Tor `1820`, Psiphon `1821`, optional HTTP `1822`.
-* Smart reconnect: if the core dies or 3 pings in a row fail, it retries up to 3 times, then drops everything and retries
-  with a fresh scan (3 more times) before giving up. The attempt counter is shown in the UI.
+* Smart reconnect: if the core dies, the pings fail (3 in a row, 5 s apart by default) or the network changes
+  (Wi-Fi <-> mobile data), it reconnects. A network change reconnects at once. Failed attempts are retried (3 by default,
+  0.5 s apart), then everything is dropped and retried with a fresh scan before giving up. The attempt counter and the
+  reason for the last drop are shown on the home screen. Attempts, delay, ping count/interval, TUN MTU and TCP buffer are in Settings.
 
 ## Build with GitHub Actions
 
@@ -24,13 +26,14 @@ apps -> VpnService (TUN) -> hev-socks5-tunnel -> SOCKS5 127.0.0.1:1819 -> Aether
 2. Open **Actions → Build APKs → Run workflow** (or push to `main`, or push a tag like `v1.0.0` to also create a release).
 3. Download the `8VPN-apks` artifact: `8VPN-armeabi-v7a.apk`, `8VPN-arm64-v8a.apk`, `8VPN-universal.apk` (v7a + v8a + x86_64).
 
-The first build is slow (Rust + BoringSSL + Tor + Go for three ABIs).
+The first build is slow (Rust + BoringSSL + Tor + Go for three ABIs). The workflow also builds `libt2s-jni.so` (tun2socks);
+if that step fails the build still succeeds, the app uses hev only and the run shows a warning.
 
 **Signing (optional).** Without secrets the APKs are signed with a debug key, which installs fine but cannot be updated
 over a build signed with another key. For a stable key add these repository secrets:
 `KEYSTORE_BASE64` (`base64 -w0 release.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
-**Versions.** `AETHER_REF` and `HEV_REF` at the top of `.github/workflows/build.yml` pick the upstream tags.
+**Versions.** `AETHER_REF` and `HEV_REF` at the top of `.github/workflows/main.yml` pick the upstream tags.
 If the Aether tag is not named `v2.3.0`, change it there.
 
 ## Notes

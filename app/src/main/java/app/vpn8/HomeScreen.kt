@@ -218,7 +218,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         }
         val showAttempt = st.phase == Phase.RECONNECTING || (st.phase == Phase.CONNECTING && st.attempt > 1)
         if (showAttempt) {
-            Text(stringResource(R.string.attempt_of, st.attempt, s.maxTries), style = MaterialTheme.typography.bodySmall, color = c.tertiary)
+            Text(stringResource(R.string.attempt_of, st.attempt, s.tries()), style = MaterialTheme.typography.bodySmall, color = c.tertiary)
         } else if (idle && st.error != null) {
             Text(st.error!!, style = MaterialTheme.typography.bodySmall, color = c.error, textAlign = TextAlign.Center)
         } else if (idle) {
@@ -227,6 +227,13 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             Text(
                 s.activeLabel() + (exit?.let { "  ·  $it" } ?: ""),
                 style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, textAlign = TextAlign.Center
+            )
+        }
+        val reason by Engine.lastReason.collectAsStateWithLifecycle()
+        reason?.let {
+            Text(
+                stringResource(R.string.last_drop, it), style = MaterialTheme.typography.bodySmall,
+                color = c.onSurfaceVariant, textAlign = TextAlign.Center
             )
         }
 

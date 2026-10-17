@@ -16,6 +16,8 @@ object Engine {
     /** Measured download speed through the tunnel in bytes/s (null = not measured yet). */
     val speedBps = MutableStateFlow<Long?>(null)
     val logs = MutableStateFlow<List<String>>(emptyList())
+    /** Why the link last dropped (shown under the connect button); null = nothing dropped yet. */
+    val lastReason = MutableStateFlow<String?>(null)
 
     private val ansi = Regex("\u001B\\[[0-9;]*[A-Za-z]")
 

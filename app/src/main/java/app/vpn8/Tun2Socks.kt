@@ -11,7 +11,7 @@ object Tun2Socks {
     }
 
     /** Starts the stack on a dup of the TUN fd it now owns. Returns 0 on success. */
-    @JvmStatic external fun start(fd: Int, socksPort: Int, mtu: Int): Int
+    @JvmStatic external fun start(fd: Int, socksPort: Int, mtu: Int, bufKb: Int): Int
 
     @JvmStatic external fun stop()
 }

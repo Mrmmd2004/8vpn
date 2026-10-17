@@ -78,6 +78,17 @@
     <string name="noize">پروفایل مبهم‌سازی</string>
     <string name="noize_default">پیش‌فرض</string>
     <string name="ip_version">نسخه IP</string>
+    <string name="ping_fails">تعداد پینگ ناموفق پشت‌سرهم تا اتصال مجدد (پیش‌فرض ۳)</string>
+    <string name="ping_interval">فاصله‌ی بین پینگ‌ها، ثانیه (پیش‌فرض ۵)</string>
+    <string name="tun_mtu">MTU تونل، ۱۲۸۰ تا ۹۰۰۰ (پیش‌فرض ۱۵۰۰)</string>
+    <string name="tcp_buffer">بافر TCP، کیلوبایت، ۱۶ تا ۴۰۹۶ (پیش‌فرض ۲۵۶)</string>
+    <string name="tunnel_note">MTU و بافر TCP در اتصال بعدی اعمال می‌شن. اگه شبکه‌ای مقدار دیگه‌ای لازم نداشت، روی پیش‌فرض بذارشون.</string>
+    <string name="last_drop">آخرین قطعی: %1$s</string>
+    <string name="reason_pings">%1$d پینگ پشت‌سرهم ناموفق بود</string>
+    <string name="reason_core">هسته از کار افتاد</string>
+    <string name="reason_network">شبکه عوض شد (وای‌فای / دیتا)</string>
+    <string name="reason_rescan">اسکن مجدد درخواست شد</string>
+    <string name="reason_start">اتصال برقرار نشد (تلاش %1$d)</string>
     <string name="max_tries">تعداد تلاش برای اتصال قبل از توقف (پیش‌فرض ۳)</string>
     <string name="retry_delay">فاصله‌ی بین تلاش‌ها، میلی‌ثانیه (پیش‌فرض ۵۰۰)</string>
     <string name="quick_reconnect">اتصال سریع به آخرین گیت‌وی</string>

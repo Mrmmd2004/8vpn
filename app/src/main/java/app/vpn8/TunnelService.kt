@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -46,6 +48,10 @@ class TunnelService : VpnService() {
     private var foreground = false
     private var stopping = false
     @Volatile private var rescanRequested = false
+    @Volatile private var networkChanged = false
+    private var netCb: ConnectivityManager.NetworkCallback? = null
+    private var lastNet: Network? = null
+    @Volatile private var connectedAt = 0L
     private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
 
@@ -91,8 +97,11 @@ class TunnelService : VpnService() {
         if (stopping || job?.isActive == true) return
         val s = SettingsStore.current
         Engine.logs.value = emptyList()
+        Engine.lastReason.value = null
         Engine.resetLive()
         Engine.status.value = Status(Phase.CONNECTING, 1)
+        networkChanged = false
+        watchNetwork()
         job = scope.launch { run(s) }
     }
 
@@ -140,7 +149,7 @@ class TunnelService : VpnService() {
             Engine.status.value = Status(if (everUp) Phase.RECONNECTING else Phase.CONNECTING, attempt)
             val fresh = cycle > 0 || forceFresh
             forceFresh = false
-            Engine.log("Starting core, attempt $attempt of ${s.maxTries}" + if (fresh) " (fresh scan)" else "")
+            Engine.log("Starting core, attempt $attempt of ${s.tries()}" + if (fresh) " (fresh scan)" else "")
 
             if (startCore(s, port, fresh = fresh)) {
                 if (s.vpnMode && tun == null && !bringUpTun(s, port)) {
@@ -150,6 +159,8 @@ class TunnelService : VpnService() {
                 everUp = true
                 failures = 0
                 cycle = 0
+                networkChanged = false
+                connectedAt = SystemClock.elapsedRealtime()
                 Engine.status.value = Status(Phase.CONNECTED)
                 Engine.log("Connected via ${s.activeLabel()}")
                 scope.launch { fetchExit(port) }
@@ -163,7 +174,17 @@ class TunnelService : VpnService() {
                 Engine.pingMs.value = null
                 Engine.exitInfo.value = null
                 Engine.speedBps.value = null
+                if (networkChanged) {
+                    // Wi-Fi <-> mobile data (or a new Wi-Fi): the old sockets are dead, so reconnect at
+                    // once with quick reconnect instead of waiting for the pings to fail.
+                    networkChanged = false
+                    Engine.log("Network changed: reconnecting right away")
+                    stopCore()
+                    delay(s.retryMs())
+                    continue
+                }
                 if (rescanRequested) {
+                    Engine.lastReason.value = getString(R.string.reason_rescan)
                     rescanRequested = false
                     forceFresh = true
                     Engine.log("Rescan requested: restarting the core with a fresh scan")
@@ -182,7 +203,8 @@ class TunnelService : VpnService() {
                 }
             } else {
                 failures++
-                if (failures >= s.maxTries) {
+                Engine.lastReason.value = getString(R.string.reason_start, attempt)
+                if (failures >= s.tries()) {
                     failures = 0
                     cycle++
                     if (cycle >= 2) {
@@ -194,7 +216,7 @@ class TunnelService : VpnService() {
                 }
             }
             stopCore()
-            delay(s.retryDelayMs.toLong())
+            delay(s.retryMs())
         }
     }
 
@@ -241,17 +263,21 @@ class TunnelService : VpnService() {
     /** Returns when the link is considered dead: core exited, or three pings in a row failed. */
     private suspend fun monitor(s: Settings, port: Int) {
         val timeout = if (s.route.slow) 20_000 else 8_000
+        val limit = s.pingLimit()
+        val ticks = s.pingEverySec() * 2
         var fails = 0
         while (currentCoroutineContext().isActive) {
-            if (rescanRequested) return
+            if (rescanRequested || networkChanged) return
             if (core?.alive != true) {
                 Engine.log("Core is not running anymore")
+                Engine.lastReason.value = getString(R.string.reason_core)
                 return
             }
             val r = withContext(Dispatchers.IO) {
                 Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", timeout)
                     ?: Socks.httpGet(port, "www.gstatic.com", "/generate_204", timeout)
             }
+            if (networkChanged) return
             if (r != null) {
                 fails = 0
                 Engine.pingMs.value = r.first.toInt()
@@ -262,12 +288,15 @@ class TunnelService : VpnService() {
             } else {
                 fails++
                 Engine.pingMs.value = null
-                Engine.log("Ping failed ($fails/3)")
-                if (fails >= 3) return
+                Engine.log("Ping failed ($fails/$limit)")
+                if (fails >= limit) {
+                    Engine.lastReason.value = getString(R.string.reason_pings, limit)
+                    return
+                }
             }
-            // Wait 5 s between probes, but react to a rescan request within half a second.
-            repeat(10) {
-                if (rescanRequested) return
+            // Wait between probes, but react to a rescan request or a network change within half a second.
+            repeat(ticks) {
+                if (rescanRequested || networkChanged) return
                 delay(500)
             }
         }
@@ -305,12 +334,50 @@ class TunnelService : VpnService() {
         Engine.exitInfo.value = if (map["loc"] != null) "$ip (${map["loc"]})" else ip
     }
 
+    // ---------------------------------------------------------------- network
+
+    /**
+     * Watches the physical default network. This app is excluded from its own VPN, so the default
+     * network it sees is the real Wi-Fi / mobile one, not the TUN.
+     */
+    private fun watchNetwork() {
+        if (netCb != null) return
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                val prev = lastNet
+                lastNet = network
+                if (prev != null && prev != network &&
+                    Engine.status.value.phase == Phase.CONNECTED &&
+                    SystemClock.elapsedRealtime() - connectedAt > 3000
+                ) {
+                    Engine.lastReason.value = getString(R.string.reason_network)
+                    Engine.log("Default network changed")
+                    networkChanged = true
+                }
+            }
+        }
+        try {
+            cm.registerDefaultNetworkCallback(cb)
+            netCb = cb
+        } catch (e: Exception) {
+            Engine.log("Network watcher unavailable: ${e.message}")
+        }
+    }
+
+    private fun unwatchNetwork() {
+        val cb = netCb ?: return
+        netCb = null
+        lastNet = null
+        runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) }
+    }
+
     // -------------------------------------------------------------------- tun
 
     private fun bringUpTun(s: Settings, port: Int): Boolean {
         val b = Builder()
             .setSession("8 VPN")
-            .setMtu(1500)
+            .setMtu(s.mtu())
             .addAddress("198.18.0.1", 32)
             .addRoute("0.0.0.0", 0)
 
@@ -350,7 +417,7 @@ class TunnelService : VpnService() {
                 Engine.log("Psiphon/Tor routes need hev-socks5-tunnel (remote DNS); not using tun2socks")
             } else if (!Tun2Socks.available) {
                 Engine.log("tun2socks library is not in this build, using hev-socks5-tunnel")
-            } else if (startTun2Socks(fd, port)) {
+            } else if (startTun2Socks(fd, port, s)) {
                 return true
             } else {
                 Engine.log("tun2socks failed to start, falling back to hev-socks5-tunnel")
@@ -359,7 +426,7 @@ class TunnelService : VpnService() {
 
         val cfg = File(filesDir, "hev.yml")
         val yml = ArrayList<String>()
-        yml += listOf("tunnel:", "  mtu: 1500", "  ipv4: 198.18.0.1")
+        yml += listOf("tunnel:", "  mtu: ${s.mtu()}", "  ipv4: 198.18.0.1")
         if (v6) yml += "  ipv6: 'fc00::1'"
         yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1", "  udp: 'udp'")
         if (s.route.slow) {
@@ -371,7 +438,7 @@ class TunnelService : VpnService() {
         // Bigger TCP buffer and longer timeouts than hev's defaults (64 KB / 5 s connect), which
         // are too tight for a WARP link. Keys unknown to a given hev version are ignored.
         yml += listOf(
-            "misc:", "  tcp-buffer-size: 262144", "  connect-timeout: ${if (s.route.slow) 30000 else 15000}",
+            "misc:", "  tcp-buffer-size: ${s.tcpKb() * 1024}", "  connect-timeout: ${if (s.route.slow) 30000 else 15000}",
             "  tcp-read-write-timeout: 300000", "  udp-read-write-timeout: 60000",
             "  max-session-count: 0", "  log-level: warn"
         )
@@ -400,7 +467,7 @@ class TunnelService : VpnService() {
     }
 
     /** Hands a dup of the TUN fd to tun2socks (it closes that dup itself on stop). */
-    private fun startTun2Socks(fd: ParcelFileDescriptor, port: Int): Boolean {
+    private fun startTun2Socks(fd: ParcelFileDescriptor, port: Int, s: Settings): Boolean {
         val raw = try {
             ParcelFileDescriptor.dup(fd.fileDescriptor).detachFd()
         } catch (e: Exception) {
@@ -408,7 +475,7 @@ class TunnelService : VpnService() {
             return false
         }
         val rc = try {
-            Tun2Socks.start(raw, port, 1500)
+            Tun2Socks.start(raw, port, s.mtu(), s.tcpKb())
         } catch (e: Throwable) {
             Engine.log("tun2socks: ${e.message}")
             -9
@@ -467,6 +534,7 @@ class TunnelService : VpnService() {
     }
 
     private fun teardownBlocking() {
+        unwatchNetwork()
         stopTunSide()
         core?.stop()
         core = null
@@ -499,7 +567,7 @@ class TunnelService : VpnService() {
     private fun textFor(st: Status): String = when (st.phase) {
         Phase.CONNECTED -> getString(R.string.connected) + " · " + SettingsStore.current.activeLabel()
         Phase.CONNECTING -> getString(R.string.connecting)
-        Phase.RECONNECTING -> getString(R.string.reconnecting) + " " + getString(R.string.attempt_of, st.attempt, SettingsStore.current.maxTries)
+        Phase.RECONNECTING -> getString(R.string.reconnecting) + " " + getString(R.string.attempt_of, st.attempt, SettingsStore.current.tries())
         Phase.STOPPING -> getString(R.string.stopping)
         Phase.IDLE -> getString(R.string.disconnected)
     }
