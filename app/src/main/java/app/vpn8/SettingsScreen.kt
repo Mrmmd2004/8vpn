@@ -156,8 +156,6 @@ fun SettingsScreen(
             SectionTitle(stringResource(R.string.sec_advanced))
             Label(stringResource(R.string.perf_profile))
             Chips(listOf("auto" to "Auto", "low" to "Low", "medium" to "Medium", "high" to "High"), s.perf) { v -> up { it.copy(perf = v) } }
-            Label(stringResource(R.string.warp_core))
-            Chips(listOf("v21" to "2.1.0", "v23" to "2.3.0"), s.warpCore) { v -> up { it.copy(warpCore = v) } }
             TextRow(stringResource(R.string.extra_args), s.extraArgs, stringResource(R.string.extra_args_hint)) { v -> up { it.copy(extraArgs = v) } }
             NumberRow(stringResource(R.string.tun_mtu), s.tunMtu) { v -> up { it.copy(tunMtu = v) } }
             NumberRow(stringResource(R.string.tcp_buffer), s.tcpBufferKb) { v -> up { it.copy(tcpBufferKb = v) } }

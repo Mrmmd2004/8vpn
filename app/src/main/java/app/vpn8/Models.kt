@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 const val TOR_PORT = 1820
 const val PSIPHON_PORT = 1821
-const val DEFAULT_MAX_TRIES = 5
+const val DEFAULT_MAX_TRIES = 3
 const val DEFAULT_RETRY_DELAY_MS = 1000
 
 enum class Family { AETHER, PSIPHON, TOR }
@@ -52,13 +52,12 @@ data class Settings(
     val quickReconnect: Boolean = true,
     val maxTries: Int = DEFAULT_MAX_TRIES,           // connection attempts before giving up
     val retryDelayMs: Int = DEFAULT_RETRY_DELAY_MS,  // pause between two attempts
-    val pingFails: Int = 4,        // failed probes in a row before the link counts as dead
+    val pingFails: Int = 3,        // failed probes in a row before the link counts as dead
     val pingIntervalSec: Int = 5,  // seconds between two probes
     val tunMtu: Int = 1500,        // MTU of the local TUN device (not the tunnel MTU)
     val tcpBufferKb: Int = 256,    // TCP buffer of the TUN engine, in KB
     val freshAfterDrop: Boolean = true, // after a real drop, scan for a new gateway instead of reusing the last one
     val perf: String = "auto",     // Aether resource profile: auto | low | medium | high
-    val warpCore: String = "v21",   // core of the plain WARP route: v21 (Aether 2.1.0) or v23 (Aether 2.3.0)
     val extraArgs: String = "",    // extra Aether command line arguments, appended last
     val ipVersion: String = "4",
     val upstream: String = "",
@@ -160,6 +159,13 @@ object SettingsStore {
             save(next)
             prefs.edit().putInt("schema", 9).apply()
         }
+        if (prefs.getInt("schema", 0) < 10) {
+            // Failed probes in a row before the link counts as dead: 4 -> 3. Connection attempts: 5 -> 3.
+            val next = _flow.value.copy(pingFails = Settings().pingFails, maxTries = Settings().maxTries)
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 10).apply()
+        }
     }
 
     fun update(f: (Settings) -> Settings) {
@@ -200,7 +206,6 @@ object SettingsStore {
             tcpBufferKb = prefs.getInt("tcpBufferKb", d.tcpBufferKb),
             freshAfterDrop = prefs.getBoolean("freshAfterDrop", d.freshAfterDrop),
             perf = str("perf", d.perf).takeIf { it in setOf("auto", "low", "medium", "high") } ?: d.perf,
-            warpCore = str("warpCore", d.warpCore).takeIf { it in setOf("v21", "v23") } ?: d.warpCore,
             extraArgs = str("extraArgs", d.extraArgs),
             ipVersion = str("ipVersion", d.ipVersion),
             upstream = str("upstream", d.upstream),
@@ -232,7 +237,7 @@ object SettingsStore {
             .putInt("maxTries", s.maxTries).putInt("retryDelayMs", s.retryDelayMs)
             .putInt("pingFails", s.pingFails).putInt("pingIntervalSec", s.pingIntervalSec)
             .putInt("tunMtu", s.tunMtu).putInt("tcpBufferKb", s.tcpBufferKb)
-            .putBoolean("freshAfterDrop", s.freshAfterDrop).putString("perf", s.perf).putString("extraArgs", s.extraArgs).putString("warpCore", s.warpCore)
+            .putBoolean("freshAfterDrop", s.freshAfterDrop).putString("perf", s.perf).putString("extraArgs", s.extraArgs)
             .putString("upstream", s.upstream).putString("endpoint", s.endpoint).putString("endpoint2", s.endpoint2)
             .putString("routeBlock", s.routeBlock)
             .putString("routeDirect", s.routeDirect).putString("dns", s.dns)
