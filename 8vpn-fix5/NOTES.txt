@@ -1,0 +1,12 @@
+8vpn-fix5  (apply on top of fix3 / fix4 / ui1; it contains full replacements of these files)
+
+NEW   t2s-jni/go.mod, t2s-jni/main.go, t2s-jni/jni_shim.c      Go tun2socks as libt2s-jni.so
+NEW   app/src/main/java/app/vpn8/Tun2Socks.kt                    JNI binding
+EDIT  .github/workflows/build.yml                                builds + packages libt2s-jni.so
+EDIT  app/proguard-rules.pro                                     keeps Tun2Socks
+EDIT  app/src/main/java/app/vpn8/{TunnelService,Models,SettingsScreen,HomeScreen}.kt
+EDIT  app/src/main/res/values/strings.xml, values-fa/strings.xml
+
+Settings -> "VPN engine": tun2socks (default) or hev-socks5-tunnel.
+Psiphon/Tor routes always use hev (they need remote DNS).
+If libt2s-jni.so is missing or fails to start, the app falls back to hev automatically.

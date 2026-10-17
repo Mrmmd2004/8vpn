@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="disconnected">متصل نیست</string>
+    <string name="connecting">در حال اتصال…</string>
+    <string name="connected">متصل شد</string>
+    <string name="reconnecting">در حال اتصال مجدد…</string>
+    <string name="stopping">در حال قطع اتصال…</string>
+    <string name="attempt_of">تلاش %1$d از %2$d</string>
+    <string name="tap_to_connect">برای اتصال لمس کنید</string>
+    <string name="connect_failed">اتصال برقرار نشد. لاگ‌ها را بررسی کنید.</string>
+    <string name="vpn_iface_failed">ساخت رابط VPN ناموفق بود.</string>
+    <string name="disconnect">قطع اتصال</string>
+
+    <string name="ping">پینگ</string>
+    <string name="battery_row_ok">دسترسی باتری: داده شده</string>
+    <string name="battery_row_ask">دسترسی باتری: برای اجازه بزنید</string>
+    <string name="battery_already">قبلاً اجازه داده شده و کاری لازم نیست.</string>
+    <string name="battery_title">نیاز به دسترسی</string>
+    <string name="battery_text">برای اینکه اتصال در پس‌زمینه قطع نشود، برنامه باید از بهینه‌سازی باتری مستثنی شود. روی «اجازه» بزنید و در پنجره‌ی بعد گزینه‌ی «Allow» را انتخاب کنید.</string>
+    <string name="battery_allow">اجازه</string>
+    <string name="battery_skip">فعلاً نه</string>
+    <string name="ping_test">تست پینگ</string>
+    <string name="ping_testing">در حال تست…</string>
+    <string name="tun_engine">موتور VPN (حالت VPN)</string>
+    <string name="rescan">اسکن تازه</string>
+    <string name="link_speed">سرعت لینک</string>
+    <string name="ping_failed">پاسخی دریافت نشد</string>
+    <string name="download">دانلود</string>
+    <string name="upload">آپلود</string>
+    <string name="protocol">پروتکل</string>
+    <string name="exit_ip">آی‌پی خروجی</string>
+    <string name="ms_fmt">%1$d میلی‌ثانیه</string>
+    <string name="proxy_info">SOCKS5 %1$s</string>
+    <string name="http_info">HTTP %1$s</string>
+
+    <string name="logs">لاگ‌ها</string>
+    <string name="settings">تنظیمات</string>
+    <string name="about">درباره</string>
+    <string name="back">بازگشت</string>
+    <string name="no_logs">هنوز لاگی ثبت نشده است.</string>
+
+    <string name="route">مسیر</string>
+    <string name="transport">حمل‌کننده</string>
+    <string name="region">ریجن Psiphon</string>
+    <string name="region_auto">خودکار</string>
+    <string name="psiphon_mode">حالت Psiphon</string>
+    <string name="bridges">بریج‌های Tor</string>
+    <string name="bridges_auto">خودکار</string>
+    <string name="bridges_always">همیشه</string>
+    <string name="bridges_never">هرگز</string>
+    <string name="search">جستجو</string>
+    <string name="mode_vpn">VPN</string>
+    <string name="mode_proxy">فقط پروکسی</string>
+    <string name="locked_hint">برای تغییر این گزینه‌ها اتصال را قطع کنید.</string>
+
+    <string name="sec_general">عمومی</string>
+    <string name="sec_core">هسته و پروتکل</string>
+    <string name="sec_routing">مسیریابی</string>
+    <string name="sec_psiphon">Psiphon</string>
+    <string name="sec_tor">Tor</string>
+    <string name="sec_advanced">پیشرفته</string>
+
+    <string name="language">زبان</string>
+    <string name="theme">تم</string>
+    <string name="theme_system">سیستم</string>
+    <string name="theme_dark">تاریک</string>
+    <string name="theme_light">روشن</string>
+    <string name="dynamic_color">رنگ پویا (اندروید ۱۲+)</string>
+    <string name="default_mode">حالت اتصال پیش‌فرض</string>
+    <string name="auto_start">اجرا هنگام بوت</string>
+    <string name="keep_awake">بیدار نگه داشتن CPU هنگام اتصال</string>
+    <string name="split_tunnel">تونل تفکیکی (Split tunneling)</string>
+    <string name="split_off">خاموش</string>
+    <string name="split_include">فقط برنامه‌های انتخابی</string>
+    <string name="split_exclude">همه به جز انتخابی‌ها</string>
+    <string name="split_summary">%1$d برنامه انتخاب شده</string>
+    <string name="scan_level">سطح اسکن</string>
+    <string name="noize">پروفایل مبهم‌سازی</string>
+    <string name="noize_default">پیش‌فرض</string>
+    <string name="ip_version">نسخه IP</string>
+    <string name="quick_reconnect">اتصال سریع به آخرین گیت‌وی</string>
+    <string name="upstream">پروکسی بالادستی</string>
+    <string name="upstream_hint">socks5://host:port یا http://host:port</string>
+    <string name="route_block">لیست مسدود</string>
+    <string name="route_direct">لیست مستقیم</string>
+    <string name="route_hint">با ویرگول جدا کنید: دامنه، IP، CIDR، port:25، private</string>
+    <string name="dns">DNS سفارشی (داخل تونل)</string>
+    <string name="dns_hint">1.1.1.1,1.0.0.1</string>
+    <string name="socks_port">پورت SOCKS5 محلی</string>
+    <string name="http_proxy">پروکسی HTTP محلی</string>
+    <string name="http_port">پورت پروکسی HTTP</string>
+    <string name="clear_cache">پاک کردن کش و هویت WARP</string>
+    <string name="clear_cache_warn">هویت WARP ذخیره‌شده و همه کش‌ها حذف می‌شوند. در اتصال بعدی یک دستگاه جدید ثبت خواهد شد.</string>
+    <string name="confirm">تأیید</string>
+    <string name="cancel">انصراف</string>
+    <string name="cleared">پاک شد</string>
+    <string name="restart_note">تغییرات در اتصال بعدی اعمال می‌شوند.</string>
+    <string name="open_logs">لاگ تشخیصی</string>
+
+    <string name="copy">کپی</string>
+    <string name="share">اشتراک‌گذاری</string>
+    <string name="clear">پاک کردن</string>
+    <string name="copied">کپی شد</string>
+
+    <string name="app_version">نسخه برنامه</string>
+    <string name="core_version">نسخه هسته Aether</string>
+    <string name="tunnel_version">نسخه hev-socks5-tunnel</string>
+    <string name="github">گیت‌هاب</string>
+    <string name="telegram">کانال تلگرام</string>
+    <string name="license_title">لایسنس و اعتبارها</string>
+    <string name="license_text">برنامه 8 VPN نرم‌افزار آزاد و تحت لایسنس GNU AGPL-3.0 است.\n\nبر پایه Aether از CluvexStudio (AGPL-3.0)، hev-socks5-tunnel از heiher (MIT)، هسته Psiphon و ترنسپورت Lyrebird ساخته شده است. از همه‌ی این پروژه‌ها سپاسگزاریم.</string>
+
+    <string name="notif_channel">وضعیت VPN</string>
+</resources>
