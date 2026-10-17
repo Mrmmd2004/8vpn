@@ -25,13 +25,21 @@ Jetpack Compose, Material 3, dark by default, English and Persian (RTL).
 ## Features
 
 - **Two modes**: VPN (the whole device goes through the tunnel) or Proxy-only (a local SOCKS5 and optional HTTP proxy).
-- **Route switcher**: Aether, Psiphon or Tor, with Psiphon region selection and Tor bridge options.
+- **Route switcher**: Aether, Psiphon or Tor (Aether protocols: MASQUE, WireGuard, WARP-in-MASQUE, WARP-in-WARP), with Psiphon region selection and Tor bridge options.
 - **Smart reconnect**: reconnects when the core dies, when pings fail, or when the network changes (Wi-Fi ↔ mobile data), then retries with a fresh scan.
 - **Split tunneling**: include only selected apps or exclude them.
 - **Two TUN engines**: hev-socks5-tunnel, with tun2socks (Go + gVisor) as an alternative.
 - **Live info**: ping, download/upload speed, exit IP, logs.
 - Quick Settings tile, start on boot, dynamic color (Android 12+), dark / light theme.
 - English and Persian UI with full RTL support.
+
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/01-home.jpg" width="250" alt="Home">
+  <img src="screenshots/02-connected.jpg" width="250" alt="Connected">
+  <img src="screenshots/03-psiphon-region.jpg" width="250" alt="Psiphon region">
+</p>
 
 ## How it works
 
@@ -96,13 +104,21 @@ The default Aether ref is commit `21e7150` (v2.3.0 without pull request #141); p
 ## امکانات
 
 - **دو حالت**: VPN (کل دستگاه از تونل رد می‌شود) یا فقط پروکسی (یک SOCKS5 محلی و در صورت نیاز پروکسی HTTP).
-- **انتخاب مسیر**: Aether، Psiphon یا Tor، همراه با انتخاب منطقه‌ی Psiphon و گزینه‌های بریج Tor.
+- **انتخاب مسیر**: Aether، Psiphon یا Tor (پروتکل‌های Aether: MASQUE و WireGuard و WARP-in-MASQUE و WARP-in-WARP)، همراه با انتخاب منطقه‌ی Psiphon و گزینه‌های بریج Tor.
 - **اتصال مجدد هوشمند**: اگر هسته از کار بیفتد، پینگ‌ها شکست بخورند یا شبکه عوض شود (وای‌فای ↔ دیتای موبایل) دوباره وصل می‌شود و در صورت لزوم با اسکن تازه تلاش می‌کند.
 - **تونل‌سازی انتخابی (Split tunneling)**: فقط برنامه‌های انتخاب‌شده یا همه به‌جز آن‌ها.
 - **دو موتور TUN**: hev-socks5-tunnel و به‌عنوان جایگزین tun2socks (Go + gVisor).
 - **اطلاعات زنده**: پینگ، سرعت دانلود و آپلود، IP خروجی و لاگ‌ها.
 - کاشی تنظیمات سریع، اجرا هنگام بوت، رنگ پویا (اندروید ۱۲+)، تم تیره و روشن.
 - رابط فارسی و انگلیسی با پشتیبانی کامل از راست‌به‌چپ.
+
+## تصاویر برنامه
+
+<p align="center">
+  <img src="screenshots/01-home.jpg" width="250" alt="صفحه‌ی اصلی">
+  <img src="screenshots/02-connected.jpg" width="250" alt="متصل">
+  <img src="screenshots/03-psiphon-region.jpg" width="250" alt="منطقه‌ی Psiphon">
+</p>
 
 ## نحوه‌ی کار
 
