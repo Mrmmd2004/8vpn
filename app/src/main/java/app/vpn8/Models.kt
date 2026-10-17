@@ -47,7 +47,7 @@ data class Settings(
     val carrier: String = "h3",
     val scan: String = "balanced",
     val noize: String = "default",
-    val quickReconnect: Boolean = true,
+    val quickReconnect: Boolean = false,
     val ipVersion: String = "4",
     val upstream: String = "",
     val routeBlock: String = "",
@@ -83,6 +83,13 @@ object SettingsStore {
         if (::prefs.isInitialized) return
         prefs = ctx.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _flow.value = load()
+        if (prefs.getInt("schema", 0) < 3) {
+            // Quick reconnect reused a cached (often slow) gateway forever; default it to off.
+            val next = _flow.value.copy(quickReconnect = false)
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 3).apply()
+        }
         if (prefs.getInt("schema", 0) < 2) {
             // One-time reset so existing installs also start on the Aether + WireGuard default.
             val d = Settings()

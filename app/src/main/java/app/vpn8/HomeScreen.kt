@@ -46,6 +46,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -94,6 +95,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
     val rx by Engine.rxBps.collectAsStateWithLifecycle()
     val tx by Engine.txBps.collectAsStateWithLifecycle()
     val exit by Engine.exitInfo.collectAsStateWithLifecycle()
+    val speed by Engine.speedBps.collectAsStateWithLifecycle()
     val logs by Engine.logs.collectAsStateWithLifecycle()
 
     val idle = st.phase == Phase.IDLE
@@ -108,18 +110,19 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         if (testing) return
         testing = true
         testResult = null
-        val connected = st.phase == Phase.CONNECTED
+        // Only meaningful through the tunnel: with the VPN off there is nothing to measure.
+        if (st.phase != Phase.CONNECTED) { testing = false; return }
         val port = ArgBuilder.exitPort(s)
         scope.launch {
             val ms: Long? = withContext(Dispatchers.IO) {
-                if (connected) Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", 8000)?.first
-                else Socks.tcpPing("1.1.1.1", 80, 5000)
+                Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", 8000)?.first
             }
-            if (ms != null && connected) Engine.pingMs.value = ms.toInt()
+            if (ms != null) Engine.pingMs.value = ms.toInt()
             testResult = ms?.let { ctxRes.getString(R.string.ms_fmt, it.toInt()) } ?: failedText
             testing = false
         }
     }
+    LaunchedEffect(st.phase) { if (st.phase != Phase.CONNECTED) testResult = null }
     val vpnLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK) TunnelService.start(ctx)
     }
@@ -235,8 +238,15 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         }
 
         Spacer(Modifier.height(12.dp))
-        androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing && st.phase != Phase.STOPPING) {
-            Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing && st.phase == Phase.CONNECTED) {
+                Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
+            }
+            if (st.phase == Phase.CONNECTED && s.route.family == Family.AETHER) {
+                androidx.compose.material3.OutlinedButton(onClick = { TunnelService.rescan(ctx) }) {
+                    Text(stringResource(R.string.rescan))
+                }
+            }
         }
         testResult?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -256,6 +266,13 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                 Row(Modifier.fillMaxWidth()) {
                     Stat(stringResource(R.string.protocol), if (st.phase == Phase.CONNECTED) s.activeLabel() else "—", Modifier.weight(1f))
                     Stat(stringResource(R.string.exit_ip), exit ?: "—", Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    Stat(
+                        stringResource(R.string.link_speed),
+                        if (st.phase == Phase.CONNECTED) speed?.let { fmtRate(it) } ?: "…" else "—",
+                        Modifier.weight(1f)
+                    )
                 }
                 if (!s.vpnMode) {
                     Text(

@@ -13,6 +13,8 @@ object Engine {
     val rxBps = MutableStateFlow(0L)
     val txBps = MutableStateFlow(0L)
     val exitInfo = MutableStateFlow<String?>(null)
+    /** Measured download speed through the tunnel in bytes/s (null = not measured yet). */
+    val speedBps = MutableStateFlow<Long?>(null)
     val logs = MutableStateFlow<List<String>>(emptyList())
 
     private val ansi = Regex("\u001B\\[[0-9;]*[A-Za-z]")
@@ -29,5 +31,6 @@ object Engine {
         rxBps.value = 0
         txBps.value = 0
         exitInfo.value = null
+        speedBps.value = null
     }
 }

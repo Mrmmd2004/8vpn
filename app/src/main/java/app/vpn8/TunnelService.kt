@@ -44,6 +44,7 @@ class TunnelService : VpnService() {
     private var hevOn = false
     private var foreground = false
     private var stopping = false
+    @Volatile private var rescanRequested = false
     private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
 
@@ -63,7 +64,12 @@ class TunnelService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) stopSession() else startSession()
+        when (intent?.action) {
+            ACTION_STOP -> stopSession()
+            // Only meaningful while a link is up; the monitor loop picks the flag up.
+            ACTION_RESCAN -> if (Engine.status.value.phase == Phase.CONNECTED) rescanRequested = true
+            else -> startSession()
+        }
         return START_NOT_STICKY
     }
 
@@ -115,14 +121,18 @@ class TunnelService : VpnService() {
         var failures = 0
         var cycle = 0
         var everUp = false
+        var autoRescans = 0
+        var forceFresh = false
         acquireWake(s)
 
         while (currentCoroutineContext().isActive) {
             val attempt = failures + 1
             Engine.status.value = Status(if (everUp) Phase.RECONNECTING else Phase.CONNECTING, attempt)
-            Engine.log("Starting core, attempt $attempt of $MAX_TRIES" + if (cycle > 0) " (fresh scan)" else "")
+            val fresh = cycle > 0 || forceFresh
+            forceFresh = false
+            Engine.log("Starting core, attempt $attempt of $MAX_TRIES" + if (fresh) " (fresh scan)" else "")
 
-            if (startCore(s, port, fresh = cycle > 0)) {
+            if (startCore(s, port, fresh = fresh)) {
                 if (s.vpnMode && tun == null && !bringUpTun(s, port)) {
                     finish(getString(R.string.vpn_iface_failed))
                     return
@@ -133,9 +143,27 @@ class TunnelService : VpnService() {
                 Engine.status.value = Status(Phase.CONNECTED)
                 Engine.log("Connected via ${s.activeLabel()}")
                 scope.launch { fetchExit(port) }
+                val speedJob = scope.launch {
+                    val canRescan = s.route.family == Family.AETHER && !s.route.noWarp && autoRescans < MAX_AUTO_RESCANS
+                    if (checkSpeed(port) && canRescan) {
+                        autoRescans++
+                        Engine.log("Link is too slow, scanning for a better gateway ($autoRescans/$MAX_AUTO_RESCANS)")
+                        rescanRequested = true
+                    }
+                }
                 monitor(s, port)
+                speedJob.cancel()
                 Engine.pingMs.value = null
                 Engine.exitInfo.value = null
+                Engine.speedBps.value = null
+                if (rescanRequested) {
+                    rescanRequested = false
+                    forceFresh = true
+                    Engine.log("Rescan requested: restarting the core with a fresh scan")
+                    stopCore()
+                    delay(1000)
+                    continue
+                }
                 // The link died after being up. QUIC (h3) is often cut by the network after a few
                 // seconds, so alternate between h3 and h2 on each drop to find one that stays up.
                 if (s.route.family == Family.AETHER && !s.route.noWarp &&
@@ -208,6 +236,7 @@ class TunnelService : VpnService() {
         val timeout = if (s.route.slow) 20_000 else 8_000
         var fails = 0
         while (currentCoroutineContext().isActive) {
+            if (rescanRequested) return
             if (core?.alive != true) {
                 Engine.log("Core is not running anymore")
                 return
@@ -225,8 +254,37 @@ class TunnelService : VpnService() {
                 Engine.log("Ping failed ($fails/3)")
                 if (fails >= 3) return
             }
-            delay(5000)
+            // Wait 5 s between probes, but react to a rescan request within half a second.
+            repeat(10) {
+                if (rescanRequested) return
+                delay(500)
+            }
         }
+    }
+
+    /**
+     * Downloads a small file through the tunnel and publishes the speed. Returns true when the link
+     * is clearly too slow (a reason to look for a better gateway); false when it is fine or when
+     * the test could not run at all.
+     */
+    private suspend fun checkSpeed(port: Int): Boolean {
+        delay(2000) // let the tunnel settle
+        val hosts = listOf(
+            "speed.cloudflare.com" to "/__down?bytes=1000000",
+            "cachefly.cachefly.net" to "/1mb.test",
+            "ipv4.download.thinkbroadband.com" to "/1MB.zip",
+        )
+        for ((host, path) in hosts) {
+            val r = withContext(Dispatchers.IO) { Socks.download(port, host, path, 1_000_000, 10_000) } ?: continue
+            val (status, bytes, ms) = r
+            if (status != 200 || bytes <= 0 || ms <= 0) continue
+            val bps = bytes * 1000 / ms
+            Engine.speedBps.value = bps
+            Engine.log("Speed test: ${bps / 1024} KB/s ($bytes bytes in $ms ms via $host)")
+            return bps < SLOW_BPS
+        }
+        Engine.log("Speed test: no result")
+        return false
     }
 
     private suspend fun fetchExit(port: Int) {
@@ -399,6 +457,13 @@ class TunnelService : VpnService() {
         private const val CHANNEL = "vpn"
         private const val NOTIF_ID = 8
         const val ACTION_STOP = "app.vpn8.STOP"
+        const val ACTION_RESCAN = "app.vpn8.RESCAN"
+        private const val MAX_AUTO_RESCANS = 2
+        private const val SLOW_BPS = 150_000L // below ~150 KB/s the link is treated as unusable
+
+        fun rescan(ctx: Context) {
+            ctx.startService(Intent(ctx, TunnelService::class.java).setAction(ACTION_RESCAN))
+        }
 
         fun start(ctx: Context) {
             ctx.startForegroundService(Intent(ctx, TunnelService::class.java))
