@@ -48,6 +48,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,8 +70,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private fun up(f: (Settings) -> Settings) = SettingsStore.update(f)
+
+private var askedBattery = false
 
 private fun fmtRate(b: Long): String = when {
     b >= 1_048_576 -> String.format(Locale.US, "%.1f MB/s", b / 1_048_576.0)
@@ -91,6 +97,29 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
     val logs by Engine.logs.collectAsStateWithLifecycle()
 
     val idle = st.phase == Phase.IDLE
+    val scope = rememberCoroutineScope()
+    var testing by remember { mutableStateOf(false) }
+    var showBattery by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    val failedText = stringResource(R.string.ping_failed)
+    val ctxRes = LocalContext.current
+
+    fun runPing() {
+        if (testing) return
+        testing = true
+        testResult = null
+        val connected = st.phase == Phase.CONNECTED
+        val port = ArgBuilder.exitPort(s)
+        scope.launch {
+            val ms: Long? = withContext(Dispatchers.IO) {
+                if (connected) Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", 8000)?.first
+                else Socks.tcpPing("1.1.1.1", 80, 5000)
+            }
+            if (ms != null && connected) Engine.pingMs.value = ms.toInt()
+            testResult = ms?.let { ctxRes.getString(R.string.ms_fmt, it.toInt()) } ?: failedText
+            testing = false
+        }
+    }
     val vpnLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK) TunnelService.start(ctx)
     }
@@ -98,11 +127,44 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
     fun toggle() {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         if (idle) {
+            val pm = ctx.getSystemService(android.os.PowerManager::class.java)
+            if (!askedBattery && !pm.isIgnoringBatteryOptimizations(ctx.packageName)) {
+                showBattery = true
+                return
+            }
             val i = if (s.vpnMode) VpnService.prepare(ctx) else null
             if (i != null) vpnLauncher.launch(i) else TunnelService.start(ctx)
         } else if (st.phase != Phase.STOPPING) {
             TunnelService.stop(ctx)
         }
+    }
+
+    if (showBattery) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showBattery = false },
+            title = { Text(stringResource(R.string.battery_title)) },
+            text = { Text(stringResource(R.string.battery_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBattery = false
+                    runCatching {
+                        ctx.startActivity(
+                            android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                android.net.Uri.parse("package:" + ctx.packageName)
+                            )
+                        )
+                    }
+                }) { Text(stringResource(R.string.battery_allow)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBattery = false
+                    askedBattery = true
+                    toggle()
+                }) { Text(stringResource(R.string.battery_skip)) }
+            }
+        )
     }
 
     Column(
@@ -173,10 +235,12 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         }
 
         Spacer(Modifier.height(12.dp))
-        Chips(
-            listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)),
-            s.vpnMode, enabled = idle
-        ) { v -> up { it.copy(vpnMode = v) } }
+        androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing && st.phase != Phase.STOPPING) {
+            Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
+        }
+        testResult?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
 
         Spacer(Modifier.height(16.dp))
         Card(

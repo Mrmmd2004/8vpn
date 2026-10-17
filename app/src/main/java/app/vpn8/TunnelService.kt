@@ -12,6 +12,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
+import android.net.wifi.WifiManager
 import android.os.SystemClock
 import hev.htproxy.TProxyService
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,7 @@ class TunnelService : VpnService() {
     private var foreground = false
     private var stopping = false
     private var wake: PowerManager.WakeLock? = null
+    private var wifi: WifiManager.WifiLock? = null
 
     override fun attachBaseContext(base: Context) = super.attachBaseContext(LocaleHelper.wrap(base))
 
@@ -107,7 +109,8 @@ class TunnelService : VpnService() {
         stopSelf()
     }
 
-    private suspend fun run(s: Settings) {
+    private suspend fun run(base: Settings) {
+        var s = base
         val port = ArgBuilder.exitPort(s)
         var failures = 0
         var cycle = 0
@@ -133,6 +136,15 @@ class TunnelService : VpnService() {
                 monitor(s, port)
                 Engine.pingMs.value = null
                 Engine.exitInfo.value = null
+                // The link died after being up. QUIC (h3) is often cut by the network after a few
+                // seconds, so alternate between h3 and h2 on each drop to find one that stays up.
+                if (s.route.family == Family.AETHER && !s.route.noWarp &&
+                    (s.protocol == Protocol.MASQUE || s.protocol == Protocol.MIM)
+                ) {
+                    val next = if (s.carrier == "h3") "h2" else "h3"
+                    Engine.log("Link dropped. Trying ${next.uppercase()} on the next attempt")
+                    s = s.copy(carrier = next)
+                }
             } else {
                 failures++
                 if (failures >= MAX_TRIES) {
@@ -194,7 +206,10 @@ class TunnelService : VpnService() {
                 Engine.log("Core is not running anymore")
                 return
             }
-            val r = withContext(Dispatchers.IO) { Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", timeout) }
+            val r = withContext(Dispatchers.IO) {
+                Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", timeout)
+                    ?: Socks.httpGet(port, "www.gstatic.com", "/generate_204", timeout)
+            }
             if (r != null) {
                 fails = 0
                 Engine.pingMs.value = r.first.toInt()
@@ -315,6 +330,8 @@ class TunnelService : VpnService() {
         core = null
         wake?.let { if (it.isHeld) it.release() }
         wake = null
+        wifi?.let { if (it.isHeld) it.release() }
+        wifi = null
     }
 
     private fun acquireWake(s: Settings) {
@@ -323,6 +340,15 @@ class TunnelService : VpnService() {
         wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "8vpn:core").apply {
             setReferenceCounted(false)
             acquire()
+        }
+        // Without this, Wi-Fi may go to power save when the screen is off and the tunnel stalls.
+        runCatching {
+            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
+            wifi = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "8vpn:wifi").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
         }
     }
 

@@ -12,6 +12,13 @@
     <string name="disconnect">قطع اتصال</string>
 
     <string name="ping">پینگ</string>
+    <string name="battery_title">نیاز به دسترسی</string>
+    <string name="battery_text">برای اینکه اتصال در پس‌زمینه قطع نشود، برنامه باید از بهینه‌سازی باتری مستثنی شود. روی «اجازه» بزنید و در پنجره‌ی بعد گزینه‌ی «Allow» را انتخاب کنید.</string>
+    <string name="battery_allow">اجازه</string>
+    <string name="battery_skip">فعلاً نه</string>
+    <string name="ping_test">تست پینگ</string>
+    <string name="ping_testing">در حال تست…</string>
+    <string name="ping_failed">پاسخی دریافت نشد</string>
     <string name="download">دانلود</string>
     <string name="upload">آپلود</string>
     <string name="protocol">پروتکل</string>

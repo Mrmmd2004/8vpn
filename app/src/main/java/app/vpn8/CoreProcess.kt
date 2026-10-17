@@ -30,7 +30,15 @@ class CoreProcess(private val ctx: Context) {
             try {
                 p.inputStream.bufferedReader().forEachLine { Engine.log(it) }
             } catch (_: Exception) { }
-            Engine.log("core exited (code ${runCatching { p.exitValue() }.getOrDefault(-1)})")
+            val code = try { if (p.waitFor(3, TimeUnit.SECONDS)) p.exitValue() else null } catch (_: Exception) { null }
+            val why = when (code) {
+                137 -> " = killed by Android (SIGKILL)"
+                139 -> " = native crash (SIGSEGV)"
+                134 -> " = aborted (SIGABRT)"
+                143 -> " = stopped (SIGTERM)"
+                else -> ""
+            }
+            Engine.log("core exited (code ${code ?: "unknown"})$why")
         }
     }
 

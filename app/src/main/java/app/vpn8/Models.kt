@@ -41,7 +41,7 @@ data class Settings(
     val dynamicColor: Boolean = false,
     val vpnMode: Boolean = true,
     val autoStart: Boolean = false,
-    val keepAwake: Boolean = false,
+    val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
     val protocol: Protocol = Protocol.MASQUE,
     val carrier: String = "h3",

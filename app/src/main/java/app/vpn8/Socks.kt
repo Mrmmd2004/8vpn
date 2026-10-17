@@ -15,6 +15,15 @@ object Socks {
         }
     }
 
+    /** Plain TCP connect time in ms (used when the tunnel is off), or null on failure. */
+    fun tcpPing(host: String, port: Int, timeoutMs: Int): Long? = try {
+        val t0 = System.nanoTime()
+        Socket().use { it.connect(InetSocketAddress(host, port), timeoutMs) }
+        (System.nanoTime() - t0) / 1_000_000
+    } catch (_: Exception) {
+        null
+    }
+
     /** Returns (milliseconds to first response byte, response text) or null on failure. */
     fun httpGet(port: Int, host: String, path: String, timeoutMs: Int): Pair<Long, String>? = try {
         Socket().use { s ->
