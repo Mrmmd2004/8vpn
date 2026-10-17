@@ -219,7 +219,7 @@ object SettingsStore {
 // Values typed in Settings are kept as typed (so the field is not rewritten while the user types);
 // they are clamped to a safe range only where they are used.
 fun Settings.tries() = maxTries.coerceIn(1, 999)
-fun Settings.retryMs() = retryDelayMs.coerceIn(100, 60_000)
+fun Settings.retryMs(): Long = retryDelayMs.coerceIn(100, 60_000).toLong()
 fun Settings.pingLimit() = pingFails.coerceIn(1, 20)
 fun Settings.pingEverySec() = pingIntervalSec.coerceIn(1, 60)
 fun Settings.mtu() = tunMtu.coerceIn(1280, 9000)
