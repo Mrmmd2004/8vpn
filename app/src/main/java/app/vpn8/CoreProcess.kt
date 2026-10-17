@@ -47,12 +47,13 @@ class CoreProcess(private val ctx: Context) {
         }
     }
 
-    fun stop() {
+    /** SIGTERM first so Aether can stop Psiphon/Tor children, SIGKILL if it lingers. */
+    fun stop(graceMs: Long = 1200) {
         val p = proc ?: return
         proc = null
         p.destroy()
         try {
-            if (!p.waitFor(3, TimeUnit.SECONDS)) p.destroyForcibly()
+            if (!p.waitFor(graceMs, TimeUnit.MILLISECONDS)) p.destroyForcibly()
         } catch (_: InterruptedException) {
             p.destroyForcibly()
         }

@@ -101,7 +101,17 @@ class TunnelService : VpnService() {
         stopping = true
         Engine.status.value = Status(Phase.STOPPING)
         scope.launch {
-            job?.cancelAndJoin()
+            // Cancel first so the run loop cannot start a new core, then close the TUN and kill the
+            // core right away: probes blocked on the local SOCKS port fail at once instead of
+            // waiting for their 8-20 s timeouts, and the VPN key icon disappears immediately.
+            job?.cancel()
+            withContext(Dispatchers.IO) {
+                stopTunSide()
+                val c = core
+                core = null
+                c?.stop()
+            }
+            job?.join()
             finish(null)
             stopping = false
         }
@@ -425,7 +435,9 @@ class TunnelService : VpnService() {
         withContext(Dispatchers.IO) { teardownBlocking() }
     }
 
-    private fun teardownBlocking() {
+    /** Stops the TUN engine (tun2socks or hev) and closes the TUN. Safe to call twice. */
+    @Synchronized
+    private fun stopTunSide() {
         statsJob?.cancel()
         statsJob = null
         if (t2sOn) {
@@ -438,6 +450,10 @@ class TunnelService : VpnService() {
         }
         runCatching { tun?.close() }
         tun = null
+    }
+
+    private fun teardownBlocking() {
+        stopTunSide()
         core?.stop()
         core = null
         wake?.let { if (it.isHeld) it.release() }
