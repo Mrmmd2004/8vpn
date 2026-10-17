@@ -41,7 +41,7 @@ data class Settings(
     val theme: String = "dark",
     val dynamicColor: Boolean = false,
     val vpnMode: Boolean = true,
-    val tunEngine: String = "hev", // "hev" (hev-socks5-tunnel, default) or "tun2socks" (Go + gVisor)
+    val tunEngine: String = "tun2socks", // "tun2socks" (Go + gVisor, default), "hev" (hev-socks5-tunnel) or "hev-tcp" (hev, TCP only, names resolved remotely)
     val autoStart: Boolean = false,
     val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
@@ -151,6 +151,14 @@ object SettingsStore {
             save(next)
             prefs.edit().putInt("schema", 8).apply()
         }
+        if (prefs.getInt("schema", 0) < 9) {
+            // The default TUN engine is tun2socks (the same data path FCAE VPN uses), with an
+            // automatic fallback to hev when it cannot start.
+            val next = _flow.value.copy(tunEngine = Settings().tunEngine)
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 9).apply()
+        }
     }
 
     fun update(f: (Settings) -> Settings) {
@@ -174,7 +182,7 @@ object SettingsStore {
             theme = str("theme", d.theme),
             dynamicColor = prefs.getBoolean("dynamicColor", d.dynamicColor),
             vpnMode = prefs.getBoolean("vpnMode", d.vpnMode),
-            tunEngine = str("tunEngine", d.tunEngine).takeIf { it == "tun2socks" || it == "hev" } ?: d.tunEngine,
+            tunEngine = str("tunEngine", d.tunEngine).takeIf { it == "tun2socks" || it == "hev" || it == "hev-tcp" } ?: d.tunEngine,
             autoStart = prefs.getBoolean("autoStart", d.autoStart),
             keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
             route = Route.values().firstOrNull { it.name == prefs.getString("route", null) } ?: d.route,

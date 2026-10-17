@@ -432,7 +432,11 @@ class TunnelService : VpnService() {
         // IPv6 on the TUN only when the exit can carry it. With an IPv4-only exit (the default, and
         // always for Psiphon/Tor), an IPv6 address + ::/0 route makes apps connect to the AAAA
         // answer first; the core cannot dial it and downloads stall or get cut.
-        val v6 = s.ipVersion != "4" && !s.route.slow
+        // "Remote names" mode: Psiphon/Tor exits (TCP only) and the hev-tcp engine. Apps ask hev's
+        // local DNS (198.18.0.2) which hands out fake addresses; the core resolves the real name.
+        // No UDP goes through the tunnel at all in this mode.
+        val remoteDns = s.route.slow || s.tunEngine == "hev-tcp"
+        val v6 = s.ipVersion != "4" && !remoteDns
         if (v6) {
             b.addAddress("fc00::1", 128)
             b.addRoute("::", 0)
@@ -442,7 +446,7 @@ class TunnelService : VpnService() {
         // Apps and Android then cache the answers and connect by IP, instead of every new TCP
         // connection making the core do its own uncached DNS lookup over the slow link.
         // Psiphon/Tor exits carry TCP only, so there names are resolved remotely (hev mapdns).
-        if (s.route.slow) b.addDnsServer("198.18.0.2") else tunDnsServers(s).forEach { runCatching { b.addDnsServer(it) } }
+        if (remoteDns) b.addDnsServer("198.18.0.2") else tunDnsServers(s).forEach { runCatching { b.addDnsServer(it) } }
 
         val apps = s.splitApps
         try {
@@ -459,6 +463,7 @@ class TunnelService : VpnService() {
 
         val fd = b.establish() ?: return false
         tun = fd
+        Engine.log("TUN up: engine=${s.tunEngine}, mtu=${s.mtu()}, dns=" + (if (remoteDns) "remote" else tunDnsServers(s).joinToString(",")))
 
         if (s.tunEngine == "tun2socks") {
             if (s.route.slow) {
@@ -476,8 +481,9 @@ class TunnelService : VpnService() {
         val yml = ArrayList<String>()
         yml += listOf("tunnel:", "  mtu: ${s.mtu()}", "  ipv4: 198.18.0.1")
         if (v6) yml += "  ipv6: 'fc00::1'"
-        yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1", "  udp: 'udp'")
-        if (s.route.slow) {
+        yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1")
+        if (s.tunEngine != "hev-tcp") yml += "  udp: 'udp'"
+        if (remoteDns) {
             yml += listOf(
                 "mapdns:", "  address: 198.18.0.2", "  port: 53", "  network: 100.64.0.0",
                 "  netmask: 255.192.0.0", "  cache-size: 10000"
@@ -534,11 +540,34 @@ class TunnelService : VpnService() {
             return false
         }
         t2sOn = true
-        // tun2socks has no byte counters here, so the UI shows a dash instead of 0 B/s.
-        Engine.rxBps.value = -1
-        Engine.txBps.value = -1
+        // tun2socks has no byte counters, so the speed shown (and the "link is alive" check in
+        // monitor()) comes from this app's own network counters: the core runs under the same uid.
+        startUidStats()
         Engine.log("tun2socks (Go + gVisor) running on the TUN")
         return true
+    }
+
+    private fun startUidStats() {
+        statsJob?.cancel()
+        statsJob = scope.launch {
+            val uid = android.os.Process.myUid()
+            var lastTx = android.net.TrafficStats.getUidTxBytes(uid)
+            var lastRx = android.net.TrafficStats.getUidRxBytes(uid)
+            while (isActive) {
+                delay(1000)
+                val tx = android.net.TrafficStats.getUidTxBytes(uid)
+                val rx = android.net.TrafficStats.getUidRxBytes(uid)
+                if (tx >= 0 && rx >= 0 && lastTx >= 0 && lastRx >= 0) {
+                    Engine.txBps.value = (tx - lastTx).coerceAtLeast(0)
+                    Engine.rxBps.value = (rx - lastRx).coerceAtLeast(0)
+                } else {
+                    Engine.txBps.value = -1
+                    Engine.rxBps.value = -1
+                }
+                lastTx = tx
+                lastRx = rx
+            }
+        }
     }
 
     private fun startStats() {

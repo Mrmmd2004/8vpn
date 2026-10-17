@@ -63,7 +63,7 @@ fun SettingsScreen(
             Label(stringResource(R.string.default_mode))
             Chips(listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)), s.vpnMode) { v -> up { it.copy(vpnMode = v) } }
             Label(stringResource(R.string.tun_engine))
-            Chips(listOf("tun2socks" to "tun2socks (Go)", "hev" to "hev-socks5-tunnel"), s.tunEngine) { v -> up { it.copy(tunEngine = v) } }
+            Chips(listOf("tun2socks" to "tun2socks (Go)", "hev" to "hev-socks5-tunnel", "hev-tcp" to "hev (TCP only)"), s.tunEngine) { v -> up { it.copy(tunEngine = v) } }
             SwitchRow(stringResource(R.string.auto_start), s.autoStart) { v -> up { it.copy(autoStart = v) } }
             SwitchRow(stringResource(R.string.keep_awake), s.keepAwake) { v -> up { it.copy(keepAwake = v) } }
             val batteryOk = ctx.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
