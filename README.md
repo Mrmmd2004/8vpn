@@ -22,7 +22,7 @@ apps -> VpnService (TUN) -> hev-socks5-tunnel -> SOCKS5 127.0.0.1:1819 -> Aether
 
 1. Upload this project to your repository (`Mrmmd2004/8vpn`).
 2. Open **Actions → Build APKs → Run workflow** (or push to `main`, or push a tag like `v1.0.0` to also create a release).
-3. Download each APK separately from the **Releases** page (the rolling `latest` release, or a `vX.Y.Z` tag), or as its own artifact: `8VPN-arm64-v8a`, `8VPN-armeabi-v7a`, `8VPN-universal` (v7a + v8a + x86_64).
+3. Download each APK separately from the **Releases** page (the rolling `latest` release, or a `vX.Y.Z` tag), or from the run page under Artifacts, where each `.apk` is its own un-zipped download: `8VPN-arm64-v8a.apk`, `8VPN-armeabi-v7a.apk`, `8VPN-universal.apk` (v7a + v8a + x86_64).
 
 The first build is slow (Rust + BoringSSL + Tor + Go for three ABIs).
 

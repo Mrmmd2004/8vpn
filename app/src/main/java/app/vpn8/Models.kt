@@ -40,7 +40,7 @@ data class Settings(
     val theme: String = "dark",
     val dynamicColor: Boolean = false,
     val vpnMode: Boolean = true,
-    val tunEngine: String = "tun2socks", // "tun2socks" (Go + gVisor, default) or "hev" (hev-socks5-tunnel, the previous engine)
+    val tunEngine: String = "hev", // "hev" (hev-socks5-tunnel, default) or "tun2socks" (Go + gVisor)
     val autoStart: Boolean = false,
     val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
@@ -106,7 +106,7 @@ object SettingsStore {
         val schema = prefs.getInt("schema", 0)
         if (schema < 5) {
             // One-time reset of the defaults: Aether + WireGuard first, MASQUE over HTTP/2,
-            // quick reconnect on, and tun2socks as the TUN engine.
+            // quick reconnect on, and hev as the TUN engine.
             val d = Settings()
             val next = _flow.value.copy(
                 route = d.route, protocol = d.protocol, carrier = d.carrier,
@@ -115,6 +115,13 @@ object SettingsStore {
             _flow.value = next
             save(next)
             prefs.edit().putInt("schema", 5).apply()
+        }
+        if (prefs.getInt("schema", 0) < 6) {
+            // Base engine is hev again; tun2socks stays selectable in Settings.
+            val next = _flow.value.copy(tunEngine = Settings().tunEngine)
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 6).apply()
         }
     }
 
