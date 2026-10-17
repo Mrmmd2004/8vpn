@@ -111,4 +111,10 @@
     <string name="license_text">برنامه 8 VPN نرم‌افزار آزاد و تحت لایسنس GNU AGPL-3.0 است.\n\nبر پایه Aether از CluvexStudio (AGPL-3.0)، hev-socks5-tunnel از heiher (MIT)، هسته Psiphon و ترنسپورت Lyrebird ساخته شده است. از همه‌ی این پروژه‌ها سپاسگزاریم.</string>
 
     <string name="notif_channel">وضعیت VPN</string>
+    <string name="endpoint">اندپوینت سفارشی</string>
+    <string name="endpoint_outer">اندپوینت سفارشی (هاپ بیرونی)</string>
+    <string name="endpoint_inner">اندپوینت سفارشی (هاپ داخلی)</string>
+    <string name="endpoint_hint">IP:پورت، مثلاً 162.159.192.1:2408</string>
+    <string name="endpoint_note">برای اسکن خودکار خالی بگذار. اگر پر شود اسکن انجام نمی‌شود و همین گیت‌وی استفاده می‌شود.</string>
+    <string name="endpoint_invalid">اندپوینت نامعتبر است. از قالب IP:پورت استفاده کن (آی‌پی ۶ به شکل [addr]:port). مقدارهای نامعتبر نادیده گرفته می‌شوند.</string>
 </resources>

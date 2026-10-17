@@ -64,11 +64,11 @@ fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 @Composable
-fun TextRow(title: String, value: String, hint: String = "", singleLine: Boolean = true, onChange: (String) -> Unit) {
+fun TextRow(title: String, value: String, hint: String = "", singleLine: Boolean = true, isError: Boolean = false, onChange: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label(title)
         OutlinedTextField(
-            value = value, onValueChange = onChange, singleLine = singleLine,
+            value = value, onValueChange = onChange, singleLine = singleLine, isError = isError,
             placeholder = { if (hint.isNotEmpty()) Text(hint) }, modifier = Modifier.fillMaxWidth()
         )
     }

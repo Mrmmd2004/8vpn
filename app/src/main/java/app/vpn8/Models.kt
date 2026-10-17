@@ -51,6 +51,8 @@ data class Settings(
     val quickReconnect: Boolean = true,
     val ipVersion: String = "4",
     val upstream: String = "",
+    val endpoint: String = "",  // custom gateway ip:port (outer hop); empty = scan
+    val endpoint2: String = "", // second hop (inner) for Gool / Gool classic / MASQUE-in-MASQUE
     val routeBlock: String = "",
     val routeDirect: String = "",
     val dns: String = "",
@@ -63,6 +65,23 @@ data class Settings(
     val splitMode: String = "off",
     val splitApps: Set<String> = emptySet(),
 )
+
+/** Custom gateway helpers. Aether wants `ip:port` (IPv6 as `[addr]:port`). */
+object Endpoints {
+    private val re = Regex("""^(\d{1,3}(\.\d{1,3}){3}|\[[0-9a-fA-F:.]+\]):(\d{1,5})$""")
+
+    /** Returns the trimmed endpoint if it is a valid ip:port, else null. */
+    fun clean(v: String): String? {
+        val t = v.trim()
+        val m = re.matchEntire(t) ?: return null
+        val port = m.groupValues[3].toIntOrNull() ?: return null
+        if (port !in 1..65535) return null
+        if (!t.startsWith("[") && t.substringBefore(':').split('.').any { (it.toIntOrNull() ?: 256) > 255 }) return null
+        return t
+    }
+
+    fun valid(v: String) = v.isBlank() || clean(v) != null
+}
 
 fun Settings.activeLabel(): String = when (route) {
     Route.AETHER -> protocol.label
@@ -131,6 +150,8 @@ object SettingsStore {
             quickReconnect = prefs.getBoolean("quickReconnect", d.quickReconnect),
             ipVersion = str("ipVersion", d.ipVersion),
             upstream = str("upstream", d.upstream),
+            endpoint = str("endpoint", d.endpoint),
+            endpoint2 = str("endpoint2", d.endpoint2),
             routeBlock = str("routeBlock", d.routeBlock),
             routeDirect = str("routeDirect", d.routeDirect),
             dns = str("dns", d.dns),
@@ -154,7 +175,8 @@ object SettingsStore {
             .putString("route", s.route.name).putString("protocol", s.protocol.name)
             .putString("carrier", s.carrier).putString("scan", s.scan).putString("noize", s.noize)
             .putBoolean("quickReconnect", s.quickReconnect).putString("ipVersion", s.ipVersion)
-            .putString("upstream", s.upstream).putString("routeBlock", s.routeBlock)
+            .putString("upstream", s.upstream).putString("endpoint", s.endpoint).putString("endpoint2", s.endpoint2)
+            .putString("routeBlock", s.routeBlock)
             .putString("routeDirect", s.routeDirect).putString("dns", s.dns)
             .putString("psiphonRegion", s.psiphonRegion).putString("psiphonMode", s.psiphonMode)
             .putString("torBridges", s.torBridges).putInt("socksPort", s.socksPort)

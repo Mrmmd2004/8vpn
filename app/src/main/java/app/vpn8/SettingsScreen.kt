@@ -113,6 +113,18 @@ fun SettingsScreen(
             Label(stringResource(R.string.ip_version))
             Chips(listOf("4" to "IPv4", "6" to "IPv6", "dual" to "IPv4 + IPv6"), s.ipVersion) { v -> up { it.copy(ipVersion = v) } }
             SwitchRow(stringResource(R.string.quick_reconnect), s.quickReconnect) { v -> up { it.copy(quickReconnect = v) } }
+            TextRow(
+                stringResource(if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) R.string.endpoint_outer else R.string.endpoint),
+                s.endpoint, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint)
+            ) { v -> up { it.copy(endpoint = v.trim()) } }
+            if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) {
+                TextRow(stringResource(R.string.endpoint_inner), s.endpoint2, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint2)) { v -> up { it.copy(endpoint2 = v.trim()) } }
+            }
+            if (!Endpoints.valid(s.endpoint) || !Endpoints.valid(s.endpoint2)) {
+                Text(stringResource(R.string.endpoint_invalid), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            } else {
+                Text(stringResource(R.string.endpoint_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             TextRow(stringResource(R.string.upstream), s.upstream, stringResource(R.string.upstream_hint)) { v -> up { it.copy(upstream = v) } }
 
             // ---- Routing

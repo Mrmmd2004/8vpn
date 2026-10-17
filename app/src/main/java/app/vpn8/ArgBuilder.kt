@@ -46,6 +46,30 @@ object ArgBuilder {
             if (r.reverse) a += "--h2"
             else if (proto == Protocol.MASQUE || proto == Protocol.MIM) a += if (s.carrier == "h2") "--h2" else "--h3"
 
+            // Custom gateway: naming a peer makes the core skip scanning. Invalid text is ignored.
+            val ep = Endpoints.clean(s.endpoint)
+            val ep2 = Endpoints.clean(s.endpoint2)
+            val h2 = r.reverse || s.carrier == "h2"
+            when (proto) {
+                Protocol.MASQUE -> if (ep != null) {
+                    a += listOf("--peer", ep)
+                    if (h2) a += listOf("--h2-peer", ep)
+                }
+                Protocol.WIREGUARD -> if (ep != null) a += listOf("--peer", ep)
+                Protocol.GOOL -> {
+                    if (ep != null) a += listOf("--peer", ep)
+                    if (ep2 != null) a += listOf("--gool-peer", ep2)
+                }
+                Protocol.GOOL_CLASSIC -> {
+                    if (ep != null) a += listOf("--wiw-outer", ep)
+                    if (ep2 != null) a += listOf("--wiw-inner", ep2)
+                }
+                Protocol.MIM -> {
+                    if (ep != null) a += listOf("--mim-outer", ep)
+                    if (ep2 != null) a += listOf("--mim-inner", ep2)
+                }
+            }
+
             a += listOf("--scan", s.scan)
             if (s.noize != "default") a += listOf("--noize", s.noize)
             a += when (s.ipVersion) { "6" -> "-6"; "dual" -> "--dual"; else -> "-4" }

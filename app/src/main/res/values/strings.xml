@@ -116,4 +116,10 @@
     <string name="license_text">8 VPN is free software released under the GNU AGPL-3.0.\n\nIt is built on Aether by CluvexStudio (AGPL-3.0), hev-socks5-tunnel by heiher (MIT), Psiphon tunnel core and the Tor pluggable transport Lyrebird. Thank you to all of these projects.</string>
 
     <string name="notif_channel">VPN status</string>
+    <string name="endpoint">Custom endpoint</string>
+    <string name="endpoint_outer">Custom endpoint (outer hop)</string>
+    <string name="endpoint_inner">Custom endpoint (inner hop)</string>
+    <string name="endpoint_hint">IP:port, e.g. 162.159.192.1:2408</string>
+    <string name="endpoint_note">Leave empty to scan automatically. When set, the scan is skipped and this gateway is used.</string>
+    <string name="endpoint_invalid">Invalid endpoint. Use IP:port (IPv6 as [addr]:port). Invalid values are ignored.</string>
 </resources>
