@@ -52,6 +52,7 @@ class TunnelService : VpnService() {
     private var netCb: ConnectivityManager.NetworkCallback? = null
     private var lastNet: Network? = null
     @Volatile private var connectedAt = 0L
+    private var psiSlot = 0
     private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
 
@@ -101,6 +102,7 @@ class TunnelService : VpnService() {
         Engine.resetLive()
         Engine.status.value = Status(Phase.CONNECTING, 1)
         networkChanged = false
+        psiSlot = 0
         watchNetwork()
         job = scope.launch { run(s) }
     }
@@ -143,6 +145,25 @@ class TunnelService : VpnService() {
         var everUp = false
         var forceFresh = false
         acquireWake(s)
+
+        // Helpers left behind by an earlier run would hold our ports, and a stale core would make
+        // the port check below look like a working connection.
+        val killed = withContext(Dispatchers.IO) { Leftovers.kill() }
+        if (killed > 0) {
+            Engine.log("Stopped $killed leftover helper process(es) from an earlier run")
+            delay(400)
+        }
+        val ports = buildList {
+            add(s.socksPort)
+            if (s.route.usesPsiphon && s.route != Route.PSIPHON_ONLY) add(PSIPHON_PORT)
+            if (s.route.usesTor && s.route != Route.TOR_ONLY) add(TOR_PORT)
+            if (s.httpEnabled) add(s.httpPort)
+        }.distinct()
+        val busy = withContext(Dispatchers.IO) { ports.firstOrNull { portOpen(it) } }
+        if (busy != null) {
+            finish(getString(R.string.port_busy, busy))
+            return
+        }
 
         while (currentCoroutineContext().isActive) {
             val attempt = failures + 1
@@ -192,6 +213,9 @@ class TunnelService : VpnService() {
                     delay(1000)
                     continue
                 }
+                // The gateway that just dropped is often the very one being throttled, so a drop is
+                // followed by a fresh scan instead of reusing it (same rule as the Windows app).
+                if (s.freshAfterDrop) forceFresh = true
                 // The link died after being up. QUIC (h3) is often cut by the network after a few
                 // seconds, so alternate between h3 and h2 on each drop to find one that stays up.
                 if (s.route.family == Family.AETHER && !s.route.noWarp &&
@@ -204,6 +228,10 @@ class TunnelService : VpnService() {
             } else {
                 failures++
                 Engine.lastReason.value = getString(R.string.reason_start, attempt)
+                if (s.route.usesPsiphon && core?.datastoreFailed == true) {
+                    psiSlot++
+                    Engine.log("Psiphon could not open its data folder: the next attempt uses a fresh one")
+                }
                 if (failures >= s.tries()) {
                     failures = 0
                     cycle++
@@ -223,15 +251,25 @@ class TunnelService : VpnService() {
     // ------------------------------------------------------------------- core
 
     private suspend fun startCore(s: Settings, port: Int, fresh: Boolean): Boolean {
+        withContext(Dispatchers.IO) {
+            Leftovers.kill()
+            cleanPsiphonDirs()
+        }
         val c = CoreProcess(this)
         core = c
         try {
-            c.start(ArgBuilder.build(this, s, fresh))
+            c.start(ArgBuilder.build(this, s, fresh, psiSlot))
         } catch (e: Exception) {
             Engine.log("Could not start core: ${e.message}")
             return false
         }
-        val limit = if (s.route.slow) 240_000L else 120_000L
+        // How long a first route search may take before it counts as a failed attempt. Same numbers
+        // as the Windows app: a slow search on a bad network is not a failure.
+        val limit = when {
+            s.route.usesTor -> 720_000L
+            s.route.usesPsiphon -> 420_000L
+            else -> 300_000L
+        }
         val deadline = SystemClock.elapsedRealtime() + limit
         while (currentCoroutineContext().isActive && SystemClock.elapsedRealtime() < deadline) {
             if (!c.alive) return false
@@ -245,6 +283,16 @@ class TunnelService : VpnService() {
             delay(500)
         }
         return false
+    }
+
+    /** Deletes Psiphon data folders from earlier slots (a failed one may be broken or locked). */
+    private fun cleanPsiphonDirs() {
+        val keep = if (psiSlot == 0) "psiphon" else "psiphon-$psiSlot"
+        File(filesDir, "aether").listFiles()?.forEach {
+            if (it.isDirectory && (it.name == "psiphon" || it.name.startsWith("psiphon-")) && it.name != keep) {
+                it.deleteRecursively()
+            }
+        }
     }
 
     private suspend fun stopCore() {

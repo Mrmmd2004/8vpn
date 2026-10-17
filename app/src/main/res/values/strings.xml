@@ -83,6 +83,11 @@
     <string name="noize">Obfuscation profile</string>
     <string name="noize_default">Default</string>
     <string name="ip_version">IP version</string>
+    <string name="fresh_after_drop">Scan for a new gateway after a drop (recommended)</string>
+    <string name="perf_profile">Aether performance profile</string>
+    <string name="extra_args">Extra Aether arguments</string>
+    <string name="extra_args_hint">e.g. --fragment --no-quic-v2</string>
+    <string name="port_busy">Port %1$d is already in use. Change it in Settings.</string>
     <string name="ping_fails">Failed pings in a row before reconnecting (default 3)</string>
     <string name="ping_interval">Seconds between pings (default 5)</string>
     <string name="tun_mtu">TUN MTU, 1280-9000 (default 1500)</string>

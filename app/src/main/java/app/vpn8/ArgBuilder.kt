@@ -13,7 +13,7 @@ object ArgBuilder {
 
     private fun csv(v: String) = v.split(',', '\n', ' ', ';').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(",")
 
-    fun build(ctx: Context, s: Settings, fresh: Boolean): List<String> {
+    fun build(ctx: Context, s: Settings, fresh: Boolean, psiSlot: Int = 0): List<String> {
         val dir = File(ctx.filesDir, "aether")
         val nl = ctx.applicationInfo.nativeLibraryDir
         val a = ArrayList<String>()
@@ -83,7 +83,7 @@ object ArgBuilder {
 
         if (r.usesPsiphon) {
             a += listOf("--psiphon-bin", "$nl/libpsiphon.so")
-            a += listOf("--psiphon-dir", File(dir, "psiphon").path)
+            a += listOf("--psiphon-dir", File(dir, if (psiSlot == 0) "psiphon" else "psiphon-$psiSlot").path)
             if (r != Route.PSIPHON_ONLY) a += listOf("--psiphon-bind", "127.0.0.1:$PSIPHON_PORT")
             a += listOf("--psiphon-mode", s.psiphonMode)
             if (s.psiphonRegion.isNotBlank()) a += listOf("--psiphon-region", s.psiphonRegion.uppercase())
@@ -96,6 +96,26 @@ object ArgBuilder {
                 "never" -> a += "--no-tor-bridges"
             }
         }
+        if (s.perf != "auto") a += listOf("--perf", s.perf)
+        a += splitArgs(s.extraArgs)
         return a
+    }
+
+    /** Splits a command line the way a shell would for simple cases: spaces separate, quotes group. */
+    fun splitArgs(v: String): List<String> {
+        val out = ArrayList<String>()
+        val sb = StringBuilder()
+        var quote: Char? = null
+        var has = false
+        for (ch in v) {
+            when {
+                quote != null -> if (ch == quote) quote = null else sb.append(ch)
+                ch == '"' || ch == '\'' -> { quote = ch; has = true }
+                ch.isWhitespace() -> if (has || sb.isNotEmpty()) { out += sb.toString(); sb.clear(); has = false }
+                else -> sb.append(ch)
+            }
+        }
+        if (has || sb.isNotEmpty()) out += sb.toString()
+        return out
     }
 }

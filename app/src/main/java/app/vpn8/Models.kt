@@ -56,6 +56,9 @@ data class Settings(
     val pingIntervalSec: Int = 5,  // seconds between two probes
     val tunMtu: Int = 1500,        // MTU of the local TUN device (not the tunnel MTU)
     val tcpBufferKb: Int = 256,    // TCP buffer of the TUN engine, in KB
+    val freshAfterDrop: Boolean = true, // after a real drop, scan for a new gateway instead of reusing the last one
+    val perf: String = "auto",     // Aether resource profile: auto | low | medium | high
+    val extraArgs: String = "",    // extra Aether command line arguments, appended last
     val ipVersion: String = "4",
     val upstream: String = "",
     val endpoint: String = "",  // custom gateway ip:port (outer hop); empty = scan
@@ -168,6 +171,9 @@ object SettingsStore {
             pingIntervalSec = prefs.getInt("pingIntervalSec", d.pingIntervalSec),
             tunMtu = prefs.getInt("tunMtu", d.tunMtu),
             tcpBufferKb = prefs.getInt("tcpBufferKb", d.tcpBufferKb),
+            freshAfterDrop = prefs.getBoolean("freshAfterDrop", d.freshAfterDrop),
+            perf = str("perf", d.perf).takeIf { it in setOf("auto", "low", "medium", "high") } ?: d.perf,
+            extraArgs = str("extraArgs", d.extraArgs),
             ipVersion = str("ipVersion", d.ipVersion),
             upstream = str("upstream", d.upstream),
             endpoint = str("endpoint", d.endpoint),
@@ -198,6 +204,7 @@ object SettingsStore {
             .putInt("maxTries", s.maxTries).putInt("retryDelayMs", s.retryDelayMs)
             .putInt("pingFails", s.pingFails).putInt("pingIntervalSec", s.pingIntervalSec)
             .putInt("tunMtu", s.tunMtu).putInt("tcpBufferKb", s.tcpBufferKb)
+            .putBoolean("freshAfterDrop", s.freshAfterDrop).putString("perf", s.perf).putString("extraArgs", s.extraArgs)
             .putString("upstream", s.upstream).putString("endpoint", s.endpoint).putString("endpoint2", s.endpoint2)
             .putString("routeBlock", s.routeBlock)
             .putString("routeDirect", s.routeDirect).putString("dns", s.dns)

@@ -113,6 +113,7 @@ fun SettingsScreen(
             Label(stringResource(R.string.ip_version))
             Chips(listOf("4" to "IPv4", "6" to "IPv6", "dual" to "IPv4 + IPv6"), s.ipVersion) { v -> up { it.copy(ipVersion = v) } }
             SwitchRow(stringResource(R.string.quick_reconnect), s.quickReconnect) { v -> up { it.copy(quickReconnect = v) } }
+            SwitchRow(stringResource(R.string.fresh_after_drop), s.freshAfterDrop) { v -> up { it.copy(freshAfterDrop = v) } }
             NumberRow(stringResource(R.string.max_tries), s.maxTries) { v -> up { it.copy(maxTries = v) } }
             NumberRow(stringResource(R.string.retry_delay), s.retryDelayMs) { v -> up { it.copy(retryDelayMs = v) } }
             NumberRow(stringResource(R.string.ping_fails), s.pingFails) { v -> up { it.copy(pingFails = v) } }
@@ -153,6 +154,9 @@ fun SettingsScreen(
 
             // ---- Advanced
             SectionTitle(stringResource(R.string.sec_advanced))
+            Label(stringResource(R.string.perf_profile))
+            Chips(listOf("auto" to "Auto", "low" to "Low", "medium" to "Medium", "high" to "High"), s.perf) { v -> up { it.copy(perf = v) } }
+            TextRow(stringResource(R.string.extra_args), s.extraArgs, stringResource(R.string.extra_args_hint)) { v -> up { it.copy(extraArgs = v) } }
             NumberRow(stringResource(R.string.tun_mtu), s.tunMtu) { v -> up { it.copy(tunMtu = v) } }
             NumberRow(stringResource(R.string.tcp_buffer), s.tcpBufferKb) { v -> up { it.copy(tcpBufferKb = v) } }
             Text(stringResource(R.string.tunnel_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

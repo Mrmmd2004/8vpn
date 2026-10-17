@@ -78,6 +78,11 @@
     <string name="noize">پروفایل مبهم‌سازی</string>
     <string name="noize_default">پیش‌فرض</string>
     <string name="ip_version">نسخه IP</string>
+    <string name="fresh_after_drop">اسکن گیت‌وی جدید بعد از قطعی (پیشنهادی)</string>
+    <string name="perf_profile">پروفایل عملکرد Aether</string>
+    <string name="extra_args">آرگومان‌های اضافه‌ی Aether</string>
+    <string name="extra_args_hint">مثلاً --fragment --no-quic-v2</string>
+    <string name="port_busy">پورت %1$d در حال استفاده‌ست. از تنظیمات عوضش کن.</string>
     <string name="ping_fails">تعداد پینگ ناموفق پشت‌سرهم تا اتصال مجدد (پیش‌فرض ۳)</string>
     <string name="ping_interval">فاصله‌ی بین پینگ‌ها، ثانیه (پیش‌فرض ۵)</string>
     <string name="tun_mtu">MTU تونل، ۱۲۸۰ تا ۹۰۰۰ (پیش‌فرض ۱۵۰۰)</string>
