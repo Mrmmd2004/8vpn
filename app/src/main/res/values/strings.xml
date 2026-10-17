@@ -17,6 +17,9 @@
     <string name="disconnect">Disconnect</string>
 
     <string name="ping">Ping</string>
+    <string name="battery_row_ok">Battery permission: allowed</string>
+    <string name="battery_row_ask">Battery permission: tap to allow</string>
+    <string name="battery_already">Already allowed. Nothing to do.</string>
     <string name="battery_title">Permission needed</string>
     <string name="battery_text">To stay connected in the background, 8 VPN must be exempt from battery optimization. Tap Allow and choose Allow in the next prompt.</string>
     <string name="battery_allow">Allow</string>

@@ -178,7 +178,13 @@ class TunnelService : VpnService() {
         val deadline = SystemClock.elapsedRealtime() + limit
         while (currentCoroutineContext().isActive && SystemClock.elapsedRealtime() < deadline) {
             if (!c.alive) return false
-            if (withContext(Dispatchers.IO) { portOpen(port) }) return true
+            val waited = SystemClock.elapsedRealtime() - (deadline - limit)
+            // Aether opens the Psiphon/Tor port immediately and only starts the SOCKS port once the
+            // WARP tunnel is validated, so wait for both, plus Psiphon's own "ready" line.
+            val ready = withContext(Dispatchers.IO) {
+                portOpen(port) && (port == s.socksPort || portOpen(s.socksPort))
+            } && (!s.route.usesPsiphon || c.psiphonReady || waited > 60_000)
+            if (ready) return true
             delay(500)
         }
         return false

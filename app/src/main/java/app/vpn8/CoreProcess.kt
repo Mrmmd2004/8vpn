@@ -11,6 +11,8 @@ class CoreProcess(private val ctx: Context) {
 
     val alive: Boolean get() = proc?.isAlive == true
 
+    @Volatile var psiphonReady = false
+
     fun start(args: List<String>) {
         val nl = ctx.applicationInfo.nativeLibraryDir
         val dir = File(ctx.filesDir, "aether").apply { mkdirs() }
@@ -28,7 +30,10 @@ class CoreProcess(private val ctx: Context) {
         proc = p
         thread(isDaemon = true, name = "aether-log") {
             try {
-                p.inputStream.bufferedReader().forEachLine { Engine.log(it) }
+                p.inputStream.bufferedReader().forEachLine {
+                    if (it.contains("psiphon is ready")) psiphonReady = true
+                    Engine.log(it)
+                }
             } catch (_: Exception) { }
             val code = try { if (p.waitFor(3, TimeUnit.SECONDS)) p.exitValue() else null } catch (_: Exception) { null }
             val why = when (code) {

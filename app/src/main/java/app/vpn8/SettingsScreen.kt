@@ -64,6 +64,26 @@ fun SettingsScreen(
             Chips(listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)), s.vpnMode) { v -> up { it.copy(vpnMode = v) } }
             SwitchRow(stringResource(R.string.auto_start), s.autoStart) { v -> up { it.copy(autoStart = v) } }
             SwitchRow(stringResource(R.string.keep_awake), s.keepAwake) { v -> up { it.copy(keepAwake = v) } }
+            val batteryOk = ctx.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
+            OutlinedButton(
+                onClick = {
+                    if (batteryOk) {
+                        Toast.makeText(ctx, ctx.getString(R.string.battery_already), Toast.LENGTH_SHORT).show()
+                    } else {
+                        runCatching {
+                            ctx.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    android.net.Uri.parse("package:" + ctx.packageName)
+                                )
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(if (batteryOk) R.string.battery_row_ok else R.string.battery_row_ask))
+            }
             Label(stringResource(R.string.split_tunnel))
             Chips(
                 listOf("off" to stringResource(R.string.split_off), "include" to stringResource(R.string.split_include), "exclude" to stringResource(R.string.split_exclude)),

@@ -43,7 +43,7 @@ data class Settings(
     val autoStart: Boolean = false,
     val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
-    val protocol: Protocol = Protocol.MASQUE,
+    val protocol: Protocol = Protocol.WIREGUARD,
     val carrier: String = "h3",
     val scan: String = "balanced",
     val noize: String = "default",
@@ -83,6 +83,14 @@ object SettingsStore {
         if (::prefs.isInitialized) return
         prefs = ctx.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _flow.value = load()
+        if (prefs.getInt("schema", 0) < 2) {
+            // One-time reset so existing installs also start on the Aether + WireGuard default.
+            val d = Settings()
+            val next = _flow.value.copy(route = d.route, protocol = d.protocol)
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 2).apply()
+        }
     }
 
     fun update(f: (Settings) -> Settings) {

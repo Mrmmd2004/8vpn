@@ -12,6 +12,9 @@
     <string name="disconnect">قطع اتصال</string>
 
     <string name="ping">پینگ</string>
+    <string name="battery_row_ok">دسترسی باتری: داده شده</string>
+    <string name="battery_row_ask">دسترسی باتری: برای اجازه بزنید</string>
+    <string name="battery_already">قبلاً اجازه داده شده و کاری لازم نیست.</string>
     <string name="battery_title">نیاز به دسترسی</string>
     <string name="battery_text">برای اینکه اتصال در پس‌زمینه قطع نشود، برنامه باید از بهینه‌سازی باتری مستثنی شود. روی «اجازه» بزنید و در پنجره‌ی بعد گزینه‌ی «Allow» را انتخاب کنید.</string>
     <string name="battery_allow">اجازه</string>
