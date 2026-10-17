@@ -304,7 +304,11 @@ class TunnelService : VpnService() {
             .addAddress("fc00::1", 128)
             .addRoute("0.0.0.0", 0)
             .addRoute("::", 0)
-            .addDnsServer("198.18.0.2") // answered by hev's mapped DNS, resolved remotely by the core
+
+        // Real resolvers, reached through the tunnel (UDP/53 -> hev -> SOCKS UDP ASSOCIATE -> core).
+        // Apps and Android then cache the answers and connect by IP, instead of every new TCP
+        // connection making the core do its own uncached DNS lookup over the slow link.
+        tunDnsServers(s).forEach { runCatching { b.addDnsServer(it) } }
 
         val apps = s.splitApps
         try {
@@ -333,12 +337,6 @@ class TunnelService : VpnService() {
               port: $port
               address: 127.0.0.1
               udp: 'udp'
-            mapdns:
-              address: 198.18.0.2
-              port: 53
-              network: 100.64.0.0
-              netmask: 255.192.0.0
-              cache-size: 10000
             misc:
               log-level: warn
             """.trimIndent()
@@ -356,6 +354,14 @@ class TunnelService : VpnService() {
         }
         startStats()
         return true
+    }
+
+    /** IPv4 resolver addresses for the TUN: the user's DNS setting if it has any, else Cloudflare. */
+    private fun tunDnsServers(s: Settings): List<String> {
+        val custom = s.dns.split(',', ' ', ';', '\n')
+            .map { it.trim().removeSuffix(":53") }
+            .filter { it.isNotEmpty() && it.all { c -> c.isDigit() || c == '.' } }
+        return custom.ifEmpty { listOf("1.1.1.1", "1.0.0.1") }
     }
 
     private fun startStats() {
