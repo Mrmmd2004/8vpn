@@ -43,18 +43,4 @@ If the Aether tag is not named `v2.3.0`, change it there.
 
 ---
 
-# 8 VPN (فارسی)
 
-کلاینت سبک VPN اندروید بر پایه هسته **Aether** و **hev-socks5-tunnel** با Jetpack Compose و Material 3.
-پیش‌فرض انگلیسی و تاریک است و فارسی (RTL) هم پشتیبانی می‌شود.
-
-## بیلد با GitHub Actions
-
-۱. پروژه را در ریپوی `Mrmmd2004/8vpn` آپلود کنید.
-۲. از تب **Actions → Build APKs → Run workflow** را بزنید (یا روی `main` پوش کنید؛ با تگ مثل `v1.0.0` ریلیز هم ساخته می‌شود).
-۳. از آرتیفکت `8VPN-apks` سه فایل را بردارید: `armeabi-v7a`، `arm64-v8a` و `universal`.
-
-بیلد اول طولانی است. بدون ساخت کلید، APKها با کلید دیباگ امضا می‌شوند. برای کلید ثابت، سکرت‌های
-`KEYSTORE_BASE64`، `KEYSTORE_PASSWORD`، `KEY_ALIAS` و `KEY_PASSWORD` را در تنظیمات ریپو اضافه کنید.
-
-لایسنس پروژه AGPL-3.0 است. اعتبار: CluvexStudio/Aether و heiher/hev-socks5-tunnel.
