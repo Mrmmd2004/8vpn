@@ -22,7 +22,7 @@ apps -> VpnService (TUN) -> hev-socks5-tunnel -> SOCKS5 127.0.0.1:1819 -> Aether
 
 1. Upload this project to your repository (`Mrmmd2004/8vpn`).
 2. Open **Actions → Build APKs → Run workflow** (or push to `main`, or push a tag like `v1.0.0` to also create a release).
-3. Download each APK separately from the **Releases** page (the rolling `latest` release, or a `vX.Y.Z` tag), or from the run page under Artifacts, where each `.apk` is its own un-zipped download: `8VPN-arm64-v8a.apk`, `8VPN-armeabi-v7a.apk`, `8VPN-universal.apk` (v7a + v8a + x86_64).
+3. Download the `8VPN-apks` artifact: `8VPN-armeabi-v7a.apk`, `8VPN-arm64-v8a.apk`, `8VPN-universal.apk` (v7a + v8a + x86_64).
 
 The first build is slow (Rust + BoringSSL + Tor + Go for three ABIs).
 
@@ -30,7 +30,7 @@ The first build is slow (Rust + BoringSSL + Tor + Go for three ABIs).
 over a build signed with another key. For a stable key add these repository secrets:
 `KEYSTORE_BASE64` (`base64 -w0 release.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
-**Versions.** `AETHER_REF` and `HEV_REF` at the top of `.github/workflows/main.yml` pick the upstream tags.
+**Versions.** `AETHER_REF` and `HEV_REF` at the top of `.github/workflows/build.yml` pick the upstream tags.
 If the Aether tag is not named `v2.3.0`, change it there.
 
 ## Notes

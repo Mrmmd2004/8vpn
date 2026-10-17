@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -189,61 +190,59 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
     }
     val live = st.phase == Phase.CONNECTED
 
+    var panelOpen by remember { mutableStateOf(false) }
+    val panelShown = panelOpen && idle
+
     Column(
         Modifier.windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // ---- Top bar
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             TextButton(onClick = openLogs) { Text(stringResource(R.string.logs)) }
-            TextButton(onClick = openSettings) { Text("⚙ " + stringResource(R.string.settings)) }
+            TextButton(onClick = openSettings) { Text("⚙", fontSize = 20.sp) }
         }
 
-        // ---- Hero: connect button with a static halo (no extra animation) and the status line
-        Spacer(Modifier.height(20.dp))
+        // ---- Hero: connect button and one status line
+        Spacer(Modifier.height(6.dp))
         Box(contentAlignment = Alignment.Center) {
-            Box(Modifier.size(232.dp).clip(CircleShape).background(if (live) c.primary.copy(alpha = 0.10f) else Color.Transparent))
-            Box(Modifier.size(206.dp).clip(CircleShape).background(if (live) c.primary.copy(alpha = 0.10f) else Color.Transparent))
-            ConnectButton(st.phase, ::toggle)
+            Box(Modifier.size(180.dp).clip(CircleShape).background(if (live) c.primary.copy(alpha = 0.10f) else Color.Transparent))
+            ConnectButton(st.phase, ::toggle, 144.dp)
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+            Box(Modifier.size(9.dp).clip(CircleShape).background(dot))
             Spacer(Modifier.size(8.dp))
-            Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
         }
         val showAttempt = st.phase == Phase.RECONNECTING || (st.phase == Phase.CONNECTING && st.attempt > 1)
         if (showAttempt) {
-            Text(stringResource(R.string.attempt_of, st.attempt, MAX_TRIES), color = c.tertiary)
+            Text(stringResource(R.string.attempt_of, st.attempt, MAX_TRIES), style = MaterialTheme.typography.bodySmall, color = c.tertiary)
         } else if (idle && st.error != null) {
-            Text(st.error!!, color = c.error, textAlign = TextAlign.Center)
+            Text(st.error!!, style = MaterialTheme.typography.bodySmall, color = c.error, textAlign = TextAlign.Center)
         } else if (idle) {
-            Text(stringResource(R.string.tap_to_connect), color = c.onSurfaceVariant)
+            Text(stringResource(R.string.tap_to_connect), style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
         } else if (live) {
             Text(
                 s.activeLabel() + (exit?.let { "  ·  $it" } ?: ""),
-                style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant, textAlign = TextAlign.Center
+                style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, textAlign = TextAlign.Center
             )
         }
 
-        // ---- Stat tiles
-        Spacer(Modifier.height(20.dp))
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(stringResource(R.string.ping), ping?.let { stringResource(R.string.ms_fmt, it) } ?: "—", Modifier.weight(1f).fillMaxHeight())
-            StatTile(stringResource(R.string.download), if (s.vpnMode && live) fmtRate(rx) else "—", Modifier.weight(1f).fillMaxHeight())
-            StatTile(stringResource(R.string.upload), if (s.vpnMode && live) fmtRate(tx) else "—", Modifier.weight(1f).fillMaxHeight())
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(
-                stringResource(R.string.link_speed),
-                if (live) speed?.let { fmtRate(it) } ?: "…" else "—",
-                Modifier.weight(1f).fillMaxHeight()
-            )
-            StatTile(stringResource(R.string.protocol), if (live) s.activeLabel() else "—", Modifier.weight(2f).fillMaxHeight())
+        // ---- Stats: one card, four columns
+        Spacer(Modifier.height(14.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surfaceContainer)
+                .padding(horizontal = 6.dp, vertical = 12.dp)
+        ) {
+            MiniStat(stringResource(R.string.ping), ping?.let { stringResource(R.string.ms_fmt, it) } ?: "—", Modifier.weight(1f))
+            MiniStat(stringResource(R.string.download), if (s.vpnMode && live) fmtRate(rx) else "—", Modifier.weight(1f))
+            MiniStat(stringResource(R.string.upload), if (s.vpnMode && live) fmtRate(tx) else "—", Modifier.weight(1f))
+            MiniStat(stringResource(R.string.link_speed), if (live) speed?.let { fmtRate(it) } ?: "…" else "—", Modifier.weight(1f))
         }
         if (!s.vpnMode) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 stringResource(R.string.proxy_info, "127.0.0.1:${s.socksPort}") +
                     if (s.httpEnabled) "   " + stringResource(R.string.http_info, "127.0.0.1:${s.httpPort}") else "",
@@ -251,24 +250,24 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             )
         }
 
-        // ---- Actions
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing && live) {
-                Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
-            }
-            if (live && s.route.family == Family.AETHER) {
-                androidx.compose.material3.OutlinedButton(onClick = { TunnelService.rescan(ctx) }) {
-                    Text(stringResource(R.string.rescan))
+        // ---- Actions: only while connected, so there are no dead buttons
+        if (live) {
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.OutlinedButton(onClick = ::runPing, enabled = !testing) {
+                    Text(if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test))
                 }
+                if (s.route.family == Family.AETHER) {
+                    androidx.compose.material3.OutlinedButton(onClick = { TunnelService.rescan(ctx) }) {
+                        Text(stringResource(R.string.rescan))
+                    }
+                }
+                testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant) }
             }
-        }
-        testResult?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant)
         }
 
-        // ---- Core / protocol settings (unchanged logic)
-        Spacer(Modifier.height(16.dp))
+        // ---- Core switch + collapsible options
+        Spacer(Modifier.height(14.dp))
         val families = listOf(
             Family.AETHER to R.string.core_aether, Family.PSIPHON to R.string.core_psiphon, Family.TOR to R.string.core_tor
         )
@@ -286,19 +285,40 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                 ) { Text(stringResource(label)) }
             }
         }
+        val summary = stringResource(if (s.vpnMode) R.string.mode_vpn else R.string.mode_proxy) + "  ·  " + s.activeLabel()
         Column(
-            Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(c.surfaceContainer)
-                .animateContentSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(18.dp)).background(c.surfaceContainer).animateContentSize()
         ) {
-            FamilyPanel(s.route.family, s, idle)
-            if (!idle) Text(stringResource(R.string.locked_hint), style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = idle) { panelOpen = !panelOpen }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                Text(if (!idle) "🔒" else if (panelShown) "▴" else "▾", color = c.onSurfaceVariant)
+            }
+            if (!idle) {
+                Text(
+                    stringResource(R.string.locked_hint), style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                )
+            }
+            if (panelShown) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Label(stringResource(R.string.default_mode))
+                    Chips(
+                        listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)),
+                        s.vpnMode, idle
+                    ) { v -> up { it.copy(vpnMode = v) } }
+                    FamilyPanel(s.route.family, s, idle)
+                }
+            }
         }
 
         if (logs.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             Column(Modifier.fillMaxWidth().clickable(onClick = openLogs)) {
-                logs.takeLast(3).forEach {
+                logs.takeLast(2).forEach {
                     Text(
                         it, maxLines = 1, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                         color = c.onSurfaceVariant
@@ -306,19 +326,22 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
     }
 }
 
 @Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun MiniStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
         Spacer(Modifier.height(2.dp))
-        Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+        Text(
+            value, fontSize = 14.sp, maxLines = 1, textAlign = TextAlign.Center,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -379,7 +402,7 @@ fun RegionButton(s: Settings, enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun ConnectButton(phase: Phase, onClick: () -> Unit) {
+fun ConnectButton(phase: Phase, onClick: () -> Unit, size: Dp = 180.dp) {
     val c = MaterialTheme.colorScheme
     val busy = phase == Phase.CONNECTING || phase == Phase.RECONNECTING || phase == Phase.STOPPING
     val bg by animateColorAsState(
@@ -399,7 +422,7 @@ fun ConnectButton(phase: Phase, onClick: () -> Unit) {
         animationSpec = infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale"
     )
     Box(
-        Modifier.size(180.dp).scale(if (busy) pulse else 1f).clip(CircleShape).background(bg).clickable(onClick = onClick),
+        Modifier.size(size).scale(if (busy) pulse else 1f).clip(CircleShape).background(bg).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { PowerIcon(fg) }
 }
