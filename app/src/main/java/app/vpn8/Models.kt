@@ -40,14 +40,15 @@ data class Settings(
     val theme: String = "dark",
     val dynamicColor: Boolean = false,
     val vpnMode: Boolean = true,
+    val tunEngine: String = "tun2socks", // "tun2socks" (Go + gVisor, default) or "hev" (hev-socks5-tunnel, the previous engine)
     val autoStart: Boolean = false,
     val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
     val protocol: Protocol = Protocol.WIREGUARD,
-    val carrier: String = "h3",
+    val carrier: String = "h2", // MASQUE transport: HTTP/2 by default
     val scan: String = "balanced",
     val noize: String = "default",
-    val quickReconnect: Boolean = false,
+    val quickReconnect: Boolean = true,
     val ipVersion: String = "4",
     val upstream: String = "",
     val routeBlock: String = "",
@@ -83,20 +84,18 @@ object SettingsStore {
         if (::prefs.isInitialized) return
         prefs = ctx.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _flow.value = load()
-        if (prefs.getInt("schema", 0) < 3) {
-            // Quick reconnect reused a cached (often slow) gateway forever; default it to off.
-            val next = _flow.value.copy(quickReconnect = false)
-            _flow.value = next
-            save(next)
-            prefs.edit().putInt("schema", 3).apply()
-        }
-        if (prefs.getInt("schema", 0) < 2) {
-            // One-time reset so existing installs also start on the Aether + WireGuard default.
+        val schema = prefs.getInt("schema", 0)
+        if (schema < 5) {
+            // One-time reset of the defaults: Aether + WireGuard first, MASQUE over HTTP/2,
+            // quick reconnect on, and tun2socks as the TUN engine.
             val d = Settings()
-            val next = _flow.value.copy(route = d.route, protocol = d.protocol)
+            val next = _flow.value.copy(
+                route = d.route, protocol = d.protocol, carrier = d.carrier,
+                quickReconnect = d.quickReconnect, tunEngine = d.tunEngine,
+            )
             _flow.value = next
             save(next)
-            prefs.edit().putInt("schema", 2).apply()
+            prefs.edit().putInt("schema", 5).apply()
         }
     }
 
@@ -121,6 +120,7 @@ object SettingsStore {
             theme = str("theme", d.theme),
             dynamicColor = prefs.getBoolean("dynamicColor", d.dynamicColor),
             vpnMode = prefs.getBoolean("vpnMode", d.vpnMode),
+            tunEngine = str("tunEngine", d.tunEngine).takeIf { it == "tun2socks" || it == "hev" } ?: d.tunEngine,
             autoStart = prefs.getBoolean("autoStart", d.autoStart),
             keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
             route = Route.values().firstOrNull { it.name == prefs.getString("route", null) } ?: d.route,
@@ -149,6 +149,7 @@ object SettingsStore {
         prefs.edit()
             .putString("language", s.language).putString("theme", s.theme)
             .putBoolean("dynamicColor", s.dynamicColor).putBoolean("vpnMode", s.vpnMode)
+            .putString("tunEngine", s.tunEngine)
             .putBoolean("autoStart", s.autoStart).putBoolean("keepAwake", s.keepAwake)
             .putString("route", s.route.name).putString("protocol", s.protocol.name)
             .putString("carrier", s.carrier).putString("scan", s.scan).putString("noize", s.noize)

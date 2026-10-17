@@ -26,6 +26,7 @@
     <string name="battery_skip">Not now</string>
     <string name="ping_test">Ping test</string>
     <string name="ping_testing">Testing…</string>
+    <string name="tun_engine">VPN engine (VPN mode)</string>
     <string name="rescan">New scan</string>
     <string name="link_speed">Link speed</string>
     <string name="ping_failed">No response</string>

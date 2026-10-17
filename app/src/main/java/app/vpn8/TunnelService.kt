@@ -42,6 +42,7 @@ class TunnelService : VpnService() {
     private var core: CoreProcess? = null
     private var tun: ParcelFileDescriptor? = null
     private var hevOn = false
+    private var t2sOn = false
     private var foreground = false
     private var stopping = false
     @Volatile private var rescanRequested = false
@@ -308,7 +309,8 @@ class TunnelService : VpnService() {
         // Real resolvers, reached through the tunnel (UDP/53 -> hev -> SOCKS UDP ASSOCIATE -> core).
         // Apps and Android then cache the answers and connect by IP, instead of every new TCP
         // connection making the core do its own uncached DNS lookup over the slow link.
-        tunDnsServers(s).forEach { runCatching { b.addDnsServer(it) } }
+        // Psiphon/Tor exits carry TCP only, so there names are resolved remotely (hev mapdns).
+        if (s.route.slow) b.addDnsServer("198.18.0.2") else tunDnsServers(s).forEach { runCatching { b.addDnsServer(it) } }
 
         val apps = s.splitApps
         try {
@@ -326,21 +328,30 @@ class TunnelService : VpnService() {
         val fd = b.establish() ?: return false
         tun = fd
 
+        if (s.tunEngine == "tun2socks") {
+            if (s.route.slow) {
+                Engine.log("Psiphon/Tor routes need hev-socks5-tunnel (remote DNS); not using tun2socks")
+            } else if (!Tun2Socks.available) {
+                Engine.log("tun2socks library is not in this build, using hev-socks5-tunnel")
+            } else if (startTun2Socks(fd, port)) {
+                return true
+            } else {
+                Engine.log("tun2socks failed to start, falling back to hev-socks5-tunnel")
+            }
+        }
+
         val cfg = File(filesDir, "hev.yml")
-        cfg.writeText(
-            """
-            tunnel:
-              mtu: 1500
-              ipv4: 198.18.0.1
-              ipv6: 'fc00::1'
-            socks5:
-              port: $port
-              address: 127.0.0.1
-              udp: 'udp'
-            misc:
-              log-level: warn
-            """.trimIndent()
-        )
+        val yml = ArrayList<String>()
+        yml += listOf("tunnel:", "  mtu: 1500", "  ipv4: 198.18.0.1", "  ipv6: 'fc00::1'")
+        yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1", "  udp: 'udp'")
+        if (s.route.slow) {
+            yml += listOf(
+                "mapdns:", "  address: 198.18.0.2", "  port: 53", "  network: 100.64.0.0",
+                "  netmask: 255.192.0.0", "  cache-size: 10000"
+            )
+        }
+        yml += listOf("misc:", "  log-level: warn")
+        cfg.writeText(yml.joinToString("\n") + "\n")
         hevOn = try {
             TProxyService.TProxyStartService(cfg.path, fd.fd)
         } catch (e: Throwable) {
@@ -362,6 +373,33 @@ class TunnelService : VpnService() {
             .map { it.trim().removeSuffix(":53") }
             .filter { it.isNotEmpty() && it.all { c -> c.isDigit() || c == '.' } }
         return custom.ifEmpty { listOf("1.1.1.1", "1.0.0.1") }
+    }
+
+    /** Hands a dup of the TUN fd to tun2socks (it closes that dup itself on stop). */
+    private fun startTun2Socks(fd: ParcelFileDescriptor, port: Int): Boolean {
+        val raw = try {
+            ParcelFileDescriptor.dup(fd.fileDescriptor).detachFd()
+        } catch (e: Exception) {
+            Engine.log("tun2socks: could not duplicate the TUN fd: ${e.message}")
+            return false
+        }
+        val rc = try {
+            Tun2Socks.start(raw, port, 1500)
+        } catch (e: Throwable) {
+            Engine.log("tun2socks: ${e.message}")
+            -9
+        }
+        if (rc != 0) {
+            runCatching { ParcelFileDescriptor.adoptFd(raw).close() }
+            Engine.log("tun2socks start failed (code $rc)")
+            return false
+        }
+        t2sOn = true
+        // tun2socks has no byte counters here, so the UI shows a dash instead of 0 B/s.
+        Engine.rxBps.value = -1
+        Engine.txBps.value = -1
+        Engine.log("tun2socks (Go + gVisor) running on the TUN")
+        return true
     }
 
     private fun startStats() {
@@ -390,6 +428,10 @@ class TunnelService : VpnService() {
     private fun teardownBlocking() {
         statsJob?.cancel()
         statsJob = null
+        if (t2sOn) {
+            runCatching { Tun2Socks.stop() }
+            t2sOn = false
+        }
         if (hevOn) {
             runCatching { TProxyService.TProxyStopService() }
             hevOn = false

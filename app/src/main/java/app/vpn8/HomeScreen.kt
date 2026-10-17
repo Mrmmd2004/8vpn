@@ -83,6 +83,7 @@ private fun up(f: (Settings) -> Settings) = SettingsStore.update(f)
 private var askedBattery = false
 
 private fun fmtRate(b: Long): String = when {
+    b < 0 -> "—"
     b >= 1_048_576 -> String.format(Locale.US, "%.1f MB/s", b / 1_048_576.0)
     b >= 1024 -> String.format(Locale.US, "%.0f KB/s", b / 1024.0)
     else -> "$b B/s"

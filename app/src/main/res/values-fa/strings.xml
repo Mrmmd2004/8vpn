@@ -21,6 +21,7 @@
     <string name="battery_skip">فعلاً نه</string>
     <string name="ping_test">تست پینگ</string>
     <string name="ping_testing">در حال تست…</string>
+    <string name="tun_engine">موتور VPN (حالت VPN)</string>
     <string name="rescan">اسکن تازه</string>
     <string name="link_speed">سرعت لینک</string>
     <string name="ping_failed">پاسخی دریافت نشد</string>
