@@ -34,7 +34,7 @@ import java.net.Socket
 
 /**
  * Foreground service that owns the whole session:
- *   apps -> TUN -> hev-socks5-tunnel -> local SOCKS5 -> Aether (+ Psiphon / Tor) -> internet
+ *   apps -> TUN -> sing-box (or hev-socks5-tunnel) -> local SOCKS5 -> Aether (+ Psiphon / Tor) -> internet
  * In proxy-only mode the TUN and hev are skipped.
  */
 class TunnelService : VpnService() {
@@ -45,6 +45,7 @@ class TunnelService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private var hevOn = false
     private var t2sOn = false
+    private var sbOn = false
     private var foreground = false
     private var stopping = false
     @Volatile private var rescanRequested = false
@@ -451,8 +452,12 @@ class TunnelService : VpnService() {
         // "Remote names" mode: Psiphon/Tor exits (TCP only) and the hev-tcp engine. Apps ask hev's
         // local DNS (198.18.0.2) which hands out fake addresses; the core resolves the real name.
         // No UDP goes through the tunnel at all in this mode.
-        val remoteDns = s.route.slow || s.tunEngine == "hev-tcp"
-        val v6 = s.ipVersion != "4" && !remoteDns
+        // With sing-box the names are resolved by sing-box itself (DNS over TCP through the proxy),
+        // so the TUN keeps real resolver addresses and no fake-address mode is needed.
+        val useSb = s.tunEngine == "singbox" && SingBox.available
+        if (s.tunEngine == "singbox" && !useSb) Engine.log("sing-box library is not in this build, using hev-socks5-tunnel")
+        val remoteDns = !useSb && (s.route.slow || s.tunEngine == "hev-tcp")
+        val v6 = s.ipVersion != "4" && !s.route.slow && !remoteDns
         if (v6) {
             b.addAddress("fc00::1", 128)
             b.addRoute("::", 0)
@@ -480,6 +485,14 @@ class TunnelService : VpnService() {
         val fd = b.establish() ?: return false
         tun = fd
         Engine.log("TUN up: engine=${s.tunEngine}, mtu=${s.mtu()}, dns=" + (if (remoteDns) "remote" else tunDnsServers(s).joinToString(",")))
+
+        if (useSb) {
+            if (startSingBox(fd, port, s, v6)) return true
+            Engine.log("sing-box failed to start, falling back to hev-socks5-tunnel")
+            runCatching { fd.close() }
+            tun = null
+            return bringUpTun(s.copy(tunEngine = "hev"), port)
+        }
 
         if (s.tunEngine == "tun2socks") {
             if (s.route.slow) {
@@ -528,6 +541,22 @@ class TunnelService : VpnService() {
             return false
         }
         startStats()
+        return true
+    }
+
+    /** Starts sing-box on the TUN that bringUpTun just established. */
+    private fun startSingBox(fd: ParcelFileDescriptor, port: Int, s: Settings, v6: Boolean): Boolean {
+        val config = SingBox.buildConfig(s, port, v6, tunDnsServers(s).first())
+        val err = SingBox.start(this, fd, config) { protect(it) }
+        if (err != null) {
+            Engine.log("sing-box: $err")
+            return false
+        }
+        sbOn = true
+        // sing-box has no byte counters here, so the speed shown (and the "link is alive" check in
+        // monitor()) comes from this app's own network counters: the core runs under the same uid.
+        startUidStats()
+        Engine.log("sing-box (gVisor) running on the TUN")
         return true
     }
 
@@ -671,6 +700,10 @@ class TunnelService : VpnService() {
     private fun stopTunSide() {
         statsJob?.cancel()
         statsJob = null
+        if (sbOn) {
+            runCatching { SingBox.stop() }
+            sbOn = false
+        }
         if (t2sOn) {
             runCatching { Tun2Socks.stop() }
             t2sOn = false

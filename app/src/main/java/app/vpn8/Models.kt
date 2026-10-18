@@ -41,7 +41,7 @@ data class Settings(
     val theme: String = "dark",
     val dynamicColor: Boolean = false,
     val vpnMode: Boolean = true,
-    val tunEngine: String = "tun2socks", // "tun2socks" (Go + gVisor, default), "hev" (hev-socks5-tunnel) or "hev-tcp" (hev, TCP only, names resolved remotely)
+    val tunEngine: String = "singbox", // "singbox" (sing-box + gVisor, default), "hev" (hev-socks5-tunnel), "hev-tcp" (hev, TCP only, names resolved remotely) or "tun2socks" (not built by default)
     val autoStart: Boolean = false,
     val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
@@ -166,6 +166,13 @@ object SettingsStore {
             save(next)
             prefs.edit().putInt("schema", 10).apply()
         }
+        if (prefs.getInt("schema", 0) < 11) {
+            // The default TUN engine is now sing-box (falls back to hev when its library is missing).
+            val next = _flow.value.copy(tunEngine = Settings().tunEngine)
+            _flow.value = next
+            save(next)
+            prefs.edit().putInt("schema", 11).apply()
+        }
     }
 
     fun update(f: (Settings) -> Settings) {
@@ -189,7 +196,7 @@ object SettingsStore {
             theme = str("theme", d.theme),
             dynamicColor = prefs.getBoolean("dynamicColor", d.dynamicColor),
             vpnMode = prefs.getBoolean("vpnMode", d.vpnMode),
-            tunEngine = str("tunEngine", d.tunEngine).takeIf { it == "tun2socks" || it == "hev" || it == "hev-tcp" } ?: d.tunEngine,
+            tunEngine = str("tunEngine", d.tunEngine).let { if (it == "tun2socks") "singbox" else it }.takeIf { it == "singbox" || it == "hev" || it == "hev-tcp" } ?: d.tunEngine,
             autoStart = prefs.getBoolean("autoStart", d.autoStart),
             keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
             route = Route.values().firstOrNull { it.name == prefs.getString("route", null) } ?: d.route,

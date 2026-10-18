@@ -174,3 +174,25 @@ apps -> VpnService (TUN) -> hev-socks5-tunnel -> SOCKS5 127.0.0.1:1819 -> Aether
 - فهرست مناطق Psiphon ثابت است و مجموعه‌ی واقعی به سرورهای Psiphon بستگی دارد.
 
 </div>
+
+---
+
+## sing-box TUN engine
+
+VPN mode now uses **sing-box** (the `libbox` library) as the default TUN engine:
+`apps -> TUN -> sing-box (gVisor stack) -> SOCKS5 127.0.0.1:<port> -> Aether / Psiphon / Tor`.
+DNS is answered by sing-box (DNS over TCP through the proxy), and for Psiphon and Tor non-DNS UDP is refused
+at once so apps fall back from QUIC to TCP. If the library is missing or fails to start, the app falls back to
+hev-socks5-tunnel automatically. The engine can be changed in Settings.
+
+`libbox.aar` is built by the `libbox` job of `.github/workflows/main.yml` (sing-box `v1.13.21`, tag
+`with_gvisor`, arm + arm64) and placed in `app/libs/`. Use the `singbox_ref` input to build another sing-box tag.
+For a local Gradle build, put a `libbox.aar` into `app/libs/` first.
+
+## موتور TUN با sing-box
+
+حالت VPN اکنون به‌صورت پیش‌فرض از **sing-box** (کتابخانه `libbox`) استفاده می‌کند:
+`برنامه‌ها -> TUN -> sing-box -> SOCKS5 روی 127.0.0.1 -> Aether / Psiphon / Tor`.
+DNS را خود sing-box (روی TCP از طریق پروکسی) جواب می‌دهد و برای Psiphon و Tor، UDP غیر از DNS فوراً رد می‌شود
+تا برنامه‌ها از QUIC به TCP برگردند. اگر کتابخانه نباشد یا اجرا نشود، برنامه خودکار به hev برمی‌گردد.
+موتور را می‌توان از تنظیمات عوض کرد. فایل `libbox.aar` را مرحله‌ی `libbox` در ورک‌فلو می‌سازد.
