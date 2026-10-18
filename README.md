@@ -78,7 +78,7 @@ if that step fails, the build still succeeds and the app uses hev only.
 `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
 **Versions.** `AETHER_REF` and `HEV_REF` at the top of `.github/workflows/main.yml` pick the upstream versions.
-The default Aether ref is commit `21e7150` (v2.3.0 without pull request #141); pass `aether_ref` = `v2.3.0` or `v2.1.0` when running the workflow by hand to compare.
+The default Aether ref is `v2.3.0`. When running the workflow by hand you can pass `aether_repo` (for example your own fork with a changed core) and `aether_ref` (tag, branch or full commit hash). Note that commit `21e7150` is the commit just before pull request #141 and is older than v2.2.0, so it lacks `--gool-peer` and `--gool-classic`.
 
 ## Notes
 
@@ -165,7 +165,7 @@ apps -> VpnService (TUN) -> hev-socks5-tunnel -> SOCKS5 127.0.0.1:1819 -> Aether
 `KEYSTORE_BASE64` و `KEYSTORE_PASSWORD` و `KEY_ALIAS` و `KEY_PASSWORD`.
 
 **نسخه‌ها.** مقادیر `AETHER_REF` و `HEV_REF` بالای فایل `.github/workflows/main.yml` نسخه‌ی پروژه‌های بالادستی را مشخص می‌کنند.
-مقدار پیش‌فرض Aether کامیت `21e7150` است (نسخه‌ی v2.3.0 بدون pull request شماره‌ی ۱۴۱). برای مقایسه، هنگام اجرای دستی ورک‌فلو مقدار `aether_ref` را `v2.3.0` یا `v2.1.0` بگذارید.
+مقدار پیش‌فرض Aether همان `v2.3.0` است. هنگام اجرای دستی ورک‌فلو می‌توانید `aether_repo` (مثلاً فورک خودتان با هسته‌ی تغییرداده‌شده) و `aether_ref` (تگ، برنچ یا هش کامل کامیت) را بدهید. توجه: کامیت `21e7150` درست قبل از pull request شماره‌ی ۱۴۱ است و از v2.2.0 قدیمی‌تر است، پس `--gool-peer` و `--gool-classic` را ندارد.
 
 ## نکته‌ها
 

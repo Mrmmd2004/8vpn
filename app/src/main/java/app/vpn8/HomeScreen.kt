@@ -376,13 +376,14 @@ private fun FamilyPanel(fam: Family, s: Settings, enabled: Boolean) {
                 listOf(Route.AETHER to "Aether", Route.AETHER_PSIPHON to "Aether → Psiphon", Route.AETHER_TOR to "Aether → Tor"),
                 s.route, enabled
             ) { v -> up { it.copy(route = v) } }
+            // The Psiphon region belongs to the route choice, so it opens right under it.
+            if (s.route == Route.AETHER_PSIPHON) RegionButton(s, enabled) { regionDialog = true }
             Label(stringResource(R.string.protocol))
             Chips(Protocol.values().map { it to it.label }, s.protocol, enabled) { v -> up { it.copy(protocol = v) } }
             if (s.protocol == Protocol.MASQUE || s.protocol == Protocol.MIM) {
                 Label(stringResource(R.string.transport))
                 Chips(listOf("h3" to "HTTP/3 (QUIC)", "h2" to "HTTP/2 (TCP)"), s.carrier, enabled) { v -> up { it.copy(carrier = v) } }
             }
-            if (s.route == Route.AETHER_PSIPHON) RegionButton(s, enabled) { regionDialog = true }
         }
         Family.PSIPHON -> {
             Label(stringResource(R.string.route))
