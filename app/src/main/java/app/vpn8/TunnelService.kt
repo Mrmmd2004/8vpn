@@ -52,6 +52,8 @@ class TunnelService : VpnService() {
     private var netCb: ConnectivityManager.NetworkCallback? = null
     private var lastNet: Network? = null
     @Volatile private var connectedAt = 0L
+    /** Last time the TUN engine reported data arriving for the apps (SystemClock.elapsedRealtime). */
+    @Volatile private var lastRxAt = 0L
     private var psiSlot = 0
     private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
@@ -182,6 +184,7 @@ class TunnelService : VpnService() {
                 cycle = 0
                 networkChanged = false
                 connectedAt = SystemClock.elapsedRealtime()
+                lastRxAt = connectedAt
                 Engine.status.value = Status(Phase.CONNECTED)
                 Engine.log("Connected via ${s.activeLabel()}")
                 scope.launch { fetchExit(port) }
@@ -308,11 +311,22 @@ class TunnelService : VpnService() {
         false
     }
 
-    /** Returns when the link is considered dead: core exited, or three pings in a row failed. */
+    /**
+     * Returns when the link is considered dead: core exited, or too many probes in a row failed
+     * while no data was flowing either.
+     *
+     * Psiphon and Tor are slow to answer and often stall a single new connection for many seconds
+     * while the rest of the traffic is fine, so for those routes the monitor is more patient:
+     * longer probe timeout, a higher failure limit, a longer pause between probes, and any data
+     * that arrived in the last 20 s proves the link is alive. Dropping a working link is worse
+     * than waiting a little longer: every drop restarts the core and throws the gateway away.
+     */
     private suspend fun monitor(s: Settings, port: Int) {
-        val timeout = if (s.route.slow) 20_000 else 8_000
-        val limit = s.pingLimit()
-        val ticks = s.pingEverySec() * 2
+        val slow = s.route.slow
+        val timeout = if (slow) 25_000 else 8_000
+        val limit = if (slow) maxOf(s.pingLimit(), 5) else s.pingLimit()
+        val ticks = (if (slow) maxOf(s.pingEverySec(), 8) else s.pingEverySec()) * 2
+        val aliveWindowMs = if (slow) 20_000L else 0L
         var fails = 0
         while (currentCoroutineContext().isActive) {
             if (rescanRequested || networkChanged) return
@@ -326,17 +340,19 @@ class TunnelService : VpnService() {
                     ?: Socks.httpGet(port, "www.gstatic.com", "/generate_204", timeout)
             }
             if (networkChanged) return
+            val now = SystemClock.elapsedRealtime()
+            val recentData = Engine.rxBps.value > 0 || (aliveWindowMs > 0 && now - lastRxAt < aliveWindowMs)
             if (r != null) {
                 fails = 0
                 Engine.pingMs.value = r.first.toInt()
-            } else if (Engine.rxBps.value > 0) {
-                // The probe is starved by a busy download, but data is arriving: the link is alive.
+            } else if (recentData) {
+                // The probe is starved by a busy download or is just slow, but data is arriving: the link is alive.
                 fails = 0
                 Engine.pingMs.value = null
             } else {
                 fails++
                 Engine.pingMs.value = null
-                Engine.log("Ping failed ($fails/$limit)")
+                Engine.log("Ping failed ($fails/$limit), last data ${(now - lastRxAt) / 1000} s ago")
                 if (fails >= limit) {
                     Engine.lastReason.value = getString(R.string.reason_pings, limit)
                     return
@@ -482,7 +498,10 @@ class TunnelService : VpnService() {
         yml += listOf("tunnel:", "  mtu: ${s.mtu()}", "  ipv4: 198.18.0.1")
         if (v6) yml += "  ipv6: 'fc00::1'"
         yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1")
-        if (s.tunEngine != "hev-tcp") yml += "  udp: 'udp'"
+        // Psiphon/Tor exits carry TCP only. A UDP relay request to them is refused, and apps that
+        // keep retrying QUIC then hammer the exit with refused connections; so in remote-names mode
+        // no UDP relay is configured at all (apps fall back from QUIC to TCP at once).
+        if (!remoteDns) yml += "  udp: 'udp'"
         if (remoteDns) {
             yml += listOf(
                 "mapdns:", "  address: 198.18.0.2", "  port: 53", "  network: 100.64.0.0",
@@ -494,7 +513,7 @@ class TunnelService : VpnService() {
         yml += listOf(
             "misc:", "  tcp-buffer-size: ${s.tcpKb() * 1024}", "  connect-timeout: ${if (s.route.slow) 30000 else 15000}",
             "  tcp-read-write-timeout: 300000", "  udp-read-write-timeout: 60000",
-            "  max-session-count: 0", "  log-level: warn"
+            "  max-session-count: ${if (s.route.slow) 1024 else 0}", "  log-level: warn"
         )
         cfg.writeText(yml.joinToString("\n") + "\n")
         hevOn = try {
@@ -560,6 +579,7 @@ class TunnelService : VpnService() {
                 if (tx >= 0 && rx >= 0 && lastTx >= 0 && lastRx >= 0) {
                     Engine.txBps.value = (tx - lastTx).coerceAtLeast(0)
                     Engine.rxBps.value = (rx - lastRx).coerceAtLeast(0)
+                    if (rx > lastRx) lastRxAt = SystemClock.elapsedRealtime()
                 } else {
                     Engine.txBps.value = -1
                     Engine.rxBps.value = -1
@@ -570,20 +590,73 @@ class TunnelService : VpnService() {
         }
     }
 
+    /**
+     * Reads hev's byte counters once a second (speed display + "link is alive" check) and watches
+     * the TUN data path. The ping probes go straight to the local SOCKS port and never touch the
+     * TUN, so a healthy core with a stuck TUN engine looks perfect to them. If the apps keep
+     * sending for 20 s and not one byte comes back, only hev is restarted (same TUN, same core,
+     * same gateway), which clears every stuck session without a slow Psiphon / Tor reconnect.
+     */
     private fun startStats() {
         statsJob = scope.launch {
-            var lastTx = 0L
-            var lastRx = 0L
+            var lastTx = -1L
+            var lastRx = -1L
+            var stallSince = 0L
+            var stallTicks = 0
+            var lastRecycle = 0L
             while (isActive) {
                 val st = try { TProxyService.TProxyGetStats() } catch (_: Throwable) { null }
                 if (st != null && st.size >= 4) {
-                    Engine.txBps.value = (st[1] - lastTx).coerceAtLeast(0)
-                    Engine.rxBps.value = (st[3] - lastRx).coerceAtLeast(0)
+                    val now = SystemClock.elapsedRealtime()
+                    if (lastTx < 0 || st[1] < lastTx || st[3] < lastRx) {
+                        // First sample, or the counters restarted with the engine: new baseline.
+                        lastTx = st[1]
+                        lastRx = st[3]
+                    }
+                    val dTx = (st[1] - lastTx).coerceAtLeast(0)
+                    val dRx = (st[3] - lastRx).coerceAtLeast(0)
+                    Engine.txBps.value = dTx
+                    Engine.rxBps.value = dRx
+                    if (dRx > 0) {
+                        lastRxAt = now
+                        stallSince = 0L
+                        stallTicks = 0
+                    } else if (dTx > 0 && Engine.status.value.phase == Phase.CONNECTED) {
+                        if (stallSince == 0L) stallSince = now
+                        stallTicks++
+                    }
                     lastTx = st[1]
                     lastRx = st[3]
+                    if (stallSince != 0L && now - stallSince >= 20_000 && stallTicks >= 8 && now - lastRecycle >= 60_000) {
+                        Engine.log("VPN data stall: apps kept sending for ${(now - stallSince) / 1000} s but nothing came back. Restarting the TUN engine (core and gateway stay)")
+                        lastRecycle = now
+                        stallSince = 0L
+                        stallTicks = 0
+                        if (recycleHev()) {
+                            lastTx = -1L
+                            lastRx = -1L
+                        }
+                    }
                 }
                 delay(1000)
             }
+        }
+    }
+
+    /** Stops and restarts hev on the same TUN fd with the same config file. */
+    private suspend fun recycleHev(): Boolean = withContext(Dispatchers.IO) {
+        synchronized(this@TunnelService) {
+            val fd = tun ?: return@synchronized false
+            if (!hevOn || stopping) return@synchronized false
+            runCatching { TProxyService.TProxyStopService() }
+            try { Thread.sleep(300) } catch (_: InterruptedException) { }
+            hevOn = try {
+                TProxyService.TProxyStartService(File(filesDir, "hev.yml").path, fd.fd)
+            } catch (e: Throwable) {
+                Engine.log("hev restart failed: ${e.message}")
+                false
+            }
+            hevOn
         }
     }
 

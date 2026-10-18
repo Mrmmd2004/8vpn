@@ -273,8 +273,21 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             }
         }
 
-        // ---- Core switch + collapsible options
+        // ---- Mode switch (VPN / proxy only) + core switch + collapsible options
         Spacer(Modifier.height(14.dp))
+        val modes = listOf(true to R.string.mode_vpn, false to R.string.mode_proxy)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            modes.forEachIndexed { idx, (vpn, label) ->
+                SegmentedButton(
+                    selected = s.vpnMode == vpn,
+                    enabled = idle,
+                    onClick = { if (s.vpnMode != vpn) up { it.copy(vpnMode = vpn) } },
+                    shape = SegmentedButtonDefaults.itemShape(idx, modes.size),
+                    icon = {}
+                ) { Text(stringResource(label), maxLines = 1, softWrap = false, fontSize = 13.sp) }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         val families = listOf(
             Family.AETHER to R.string.core_aether, Family.PSIPHON to R.string.core_psiphon, Family.TOR to R.string.core_tor
         )
@@ -288,8 +301,14 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                             it.copy(route = when (fam) { Family.AETHER -> Route.AETHER; Family.PSIPHON -> Route.PSIPHON_ONLY; Family.TOR -> Route.TOR_ONLY })
                         }
                     },
-                    shape = SegmentedButtonDefaults.itemShape(idx, families.size)
-                ) { Text(stringResource(label)) }
+                    shape = SegmentedButtonDefaults.itemShape(idx, families.size),
+                    icon = {}
+                ) {
+                    Text(
+                        stringResource(label), maxLines = 1, softWrap = false, fontSize = 13.sp,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
             }
         }
         val summary = stringResource(if (s.vpnMode) R.string.mode_vpn else R.string.mode_proxy) + "  ·  " + s.activeLabel()
@@ -301,7 +320,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text(if (!idle) "🔒" else if (panelShown) "▴" else "▾", color = c.onSurfaceVariant)
             }
             if (!idle) {
@@ -368,7 +387,7 @@ private fun FamilyPanel(fam: Family, s: Settings, enabled: Boolean) {
         Family.PSIPHON -> {
             Label(stringResource(R.string.route))
             Chips(
-                listOf(Route.PSIPHON_ONLY to "Psiphon", Route.PSIPHON_REVERSE to "Psiphon → Aether"),
+                listOf(Route.PSIPHON_ONLY to "Psiphon only", Route.PSIPHON_REVERSE to "Psiphon → Aether"),
                 s.route, enabled
             ) { v -> up { it.copy(route = v) } }
             RegionButton(s, enabled) { regionDialog = true }
@@ -378,7 +397,7 @@ private fun FamilyPanel(fam: Family, s: Settings, enabled: Boolean) {
         Family.TOR -> {
             Label(stringResource(R.string.route))
             Chips(
-                listOf(Route.TOR_ONLY to "Tor", Route.TOR_REVERSE to "Tor → Aether"),
+                listOf(Route.TOR_ONLY to "Tor only", Route.TOR_REVERSE to "Tor → Aether"),
                 s.route, enabled
             ) { v -> up { it.copy(route = v) } }
             Label(stringResource(R.string.bridges))

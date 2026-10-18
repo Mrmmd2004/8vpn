@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name" translatable="false">8 VPN</string>
     <string name="core_aether" translatable="false">Aether</string>
-    <string name="core_psiphon" translatable="false">Psiphon</string>
-    <string name="core_tor" translatable="false">Tor</string>
+    <string name="core_psiphon" translatable="false">Psiphon only</string>
+    <string name="core_tor" translatable="false">Tor only</string>
 
     <string name="disconnected">Not connected</string>
     <string name="connecting">Connecting…</string>

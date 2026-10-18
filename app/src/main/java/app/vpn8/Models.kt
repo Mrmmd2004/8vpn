@@ -97,9 +97,9 @@ fun Settings.activeLabel(): String = when (route) {
     Route.AETHER -> protocol.label
     Route.AETHER_PSIPHON -> "${protocol.label} → Psiphon"
     Route.AETHER_TOR -> "${protocol.label} → Tor"
-    Route.PSIPHON_ONLY -> "Psiphon"
+    Route.PSIPHON_ONLY -> "Psiphon only"
     Route.PSIPHON_REVERSE -> "Psiphon → MASQUE (HTTP/2)"
-    Route.TOR_ONLY -> "Tor"
+    Route.TOR_ONLY -> "Tor only"
     Route.TOR_REVERSE -> "Tor → MASQUE (HTTP/2)"
 }
 
