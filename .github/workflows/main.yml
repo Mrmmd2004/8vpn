@@ -5,14 +5,26 @@ on:
     branches: [main, master]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      aether_repo:
+        description: "Aether repository (use your own fork if you changed the core)"
+        default: "CluvexStudio/Aether"
+      aether_ref:
+        description: "Aether tag, branch or full commit hash"
+        default: "v2.3.0"
+      singbox_ref:
+        description: "sing-box tag (the libbox library is built from it)"
+        default: "v1.13.21"
 
 permissions:
   contents: write
 
 env:
   # Upstream refs. Change them here if you want other versions.
-  AETHER_REF: v2.3.0
+  AETHER_REPO: ${{ inputs.aether_repo || 'CluvexStudio/Aether' }}
+  AETHER_REF: ${{ inputs.aether_ref || 'v2.3.0' }}
   HEV_REF: 2.19.0
+  SINGBOX_REF: ${{ inputs.singbox_ref || 'v1.13.21' }}
 
 jobs:
   native:
@@ -32,7 +44,7 @@ jobs:
       - name: Checkout Aether
         uses: actions/checkout@v4
         with:
-          repository: CluvexStudio/Aether
+          repository: ${{ env.AETHER_REPO }}
           ref: ${{ env.AETHER_REF }}
           path: aether-src
           persist-credentials: false
@@ -113,12 +125,86 @@ jobs:
           path: stage/jni
           if-no-files-found: error
 
+  libbox:
+    name: sing-box library (libbox)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sing-box
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box
+          ref: ${{ env.SINGBOX_REF }}
+          path: sing-box
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: false
+
+      - name: Install Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Same gomobile fork, flags and Java package as sing-box's own Android build
+      # (cmd/internal/build_libbox), with only the features this app needs:
+      # the gVisor TUN stack. arm + arm64 cover the APKs that are published.
+      - name: Build libbox.aar
+        working-directory: sing-box
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.12
+          go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.12
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          version="${SINGBOX_REF#v}"
+          gomobile bind -v \
+            -o libbox.aar \
+            -target android/arm,android/arm64 \
+            -androidapi 23 \
+            -javapkg=io.nekohasekai \
+            -libname=box \
+            -trimpath -buildvcs=false \
+            -ldflags "-X github.com/sagernet/sing-box/constant.Version=${version} -X internal/godebug.defaultGODEBUG=multipathtcp=0 -s -w -buildid= -checklinkname=0" \
+            -tags "with_gvisor,badlinkname,tfogo_checklinkname0" \
+            ./experimental/libbox
+          ls -l libbox.aar
+          test -s libbox.aar || { echo "ERROR: libbox.aar was not produced"; exit 1; }
+          unzip -l libbox.aar | grep -E 'classes.jar|jni/.*/libbox.so'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libbox
+          path: sing-box/libbox.aar
+          if-no-files-found: error
+
   apk:
     name: Build APKs
-    needs: native
+    needs: [native, libbox]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: libbox
+          path: libbox-dl
+
+      # Always end up with exactly app/libs/libbox.aar, whatever the artifact layout is,
+      # and fail here (with a clear message) instead of deep inside Gradle.
+      - name: Place libbox.aar
+        run: |
+          mkdir -p app/libs
+          find libbox-dl -type f -name '*.aar' | head -n1 | xargs -I{} cp {} app/libs/libbox.aar
+          ls -l libbox-dl app/libs
+          test -s app/libs/libbox.aar || { echo "ERROR: app/libs/libbox.aar is missing"; exit 1; }
 
       - uses: actions/download-artifact@v4
         with:
