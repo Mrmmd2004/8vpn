@@ -67,6 +67,14 @@ android {
     }
 }
 
+// Clear error when the sing-box library has not been put in place.
+if (!file("libs/libbox.aar").exists()) {
+    throw GradleException(
+        "app/libs/libbox.aar is missing. Build it with the 'libbox' job of .github/workflows/main.yml " +
+            "(or copy a libbox.aar built from sing-box into app/libs/) and try again."
+    )
+}
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
