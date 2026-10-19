@@ -12,6 +12,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -64,16 +73,29 @@ private fun Root(onLanguageChanged: () -> Unit) {
         screen = if (screen == SPLIT || screen == ABOUT) SETTINGS else HOME
     }
 
+    val glow = LocalExtra.current.a
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        when (screen) {
-            HOME -> HomeScreen(openSettings = { screen = SETTINGS }, openLogs = { screen = LOGS })
-            SETTINGS -> SettingsScreen(
-                back = { screen = HOME }, openLogs = { screen = LOGS }, openAbout = { screen = ABOUT },
-                openSplit = { screen = SPLIT }, onLanguageChanged = onLanguageChanged
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(glow.copy(alpha = 0.10f), Color.Transparent), endY = 900f)
             )
-            LOGS -> LogsScreen(back = { screen = HOME })
-            ABOUT -> AboutScreen(back = { screen = SETTINGS })
-            SPLIT -> SplitScreen(back = { screen = SETTINGS })
+        ) {
+            AnimatedContent(
+                targetState = screen,
+                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(140)) },
+                label = "nav"
+            ) { sc ->
+                when (sc) {
+                    HOME -> HomeScreen(openSettings = { screen = SETTINGS }, openLogs = { screen = LOGS })
+                    SETTINGS -> SettingsScreen(
+                        back = { screen = HOME }, openLogs = { screen = LOGS }, openAbout = { screen = ABOUT },
+                        openSplit = { screen = SPLIT }, onLanguageChanged = onLanguageChanged
+                    )
+                    LOGS -> LogsScreen(back = { screen = HOME })
+                    ABOUT -> AboutScreen(back = { screen = SETTINGS })
+                    SPLIT -> SplitScreen(back = { screen = SETTINGS })
+                }
+            }
         }
     }
 }

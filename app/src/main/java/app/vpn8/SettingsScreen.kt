@@ -1,15 +1,15 @@
 package app.vpn8
 
 import android.os.Build
-import androidx.compose.foundation.layout.Arrangement
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,9 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.MaterialTheme
-import android.widget.Toast
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
 
@@ -43,32 +42,35 @@ fun SettingsScreen(
     var regionDialog by remember { mutableStateOf(false) }
 
     Page(stringResource(R.string.settings), back, actions = {
-        TextButton(onClick = openAbout) { Text(stringResource(R.string.about)) }
+        IconBtn(Ico.INFO, openAbout)
     }) {
-        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.restart_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            Banner(stringResource(R.string.restart_note))
 
             // ---- General
-            SectionTitle(stringResource(R.string.sec_general))
-            Label(stringResource(R.string.language))
-            Chips(listOf("en" to "English", "fa" to "فارسی"), s.language) { v ->
-                if (v != s.language) { up { it.copy(language = v) }; onLanguageChanged() }
-            }
-            Label(stringResource(R.string.theme))
-            Chips(
-                listOf("system" to stringResource(R.string.theme_system), "dark" to stringResource(R.string.theme_dark), "light" to stringResource(R.string.theme_light)),
-                s.theme
-            ) { v -> up { it.copy(theme = v) } }
-            if (Build.VERSION.SDK_INT >= 31) SwitchRow(stringResource(R.string.dynamic_color), s.dynamicColor) { v -> up { it.copy(dynamicColor = v) } }
-            Label(stringResource(R.string.default_mode))
-            Chips(listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)), s.vpnMode) { v -> up { it.copy(vpnMode = v) } }
-            Label(stringResource(R.string.tun_engine))
-            Chips(listOf("singbox" to "sing-box", "hev" to "hev-socks5-tunnel", "hev-tcp" to "hev (TCP only)"), s.tunEngine) { v -> up { it.copy(tunEngine = v) } }
-            SwitchRow(stringResource(R.string.auto_start), s.autoStart) { v -> up { it.copy(autoStart = v) } }
-            SwitchRow(stringResource(R.string.keep_awake), s.keepAwake) { v -> up { it.copy(keepAwake = v) } }
-            val batteryOk = ctx.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
-            OutlinedButton(
-                onClick = {
+            Group(stringResource(R.string.sec_general)) {
+                Field(stringResource(R.string.language)) {
+                    Chips(listOf("en" to "English", "fa" to "فارسی"), s.language) { v ->
+                        if (v != s.language) { up { it.copy(language = v) }; onLanguageChanged() }
+                    }
+                }
+                Field(stringResource(R.string.theme)) {
+                    Chips(
+                        listOf("system" to stringResource(R.string.theme_system), "dark" to stringResource(R.string.theme_dark), "light" to stringResource(R.string.theme_light)),
+                        s.theme
+                    ) { v -> up { it.copy(theme = v) } }
+                }
+                if (Build.VERSION.SDK_INT >= 31) SwitchRow(stringResource(R.string.dynamic_color), s.dynamicColor) { v -> up { it.copy(dynamicColor = v) } }
+                Field(stringResource(R.string.default_mode)) {
+                    Chips(listOf(true to stringResource(R.string.mode_vpn), false to stringResource(R.string.mode_proxy)), s.vpnMode) { v -> up { it.copy(vpnMode = v) } }
+                }
+                Field(stringResource(R.string.tun_engine)) {
+                    Chips(listOf("singbox" to "sing-box", "hev" to "hev-socks5-tunnel", "hev-tcp" to "hev (TCP only)"), s.tunEngine) { v -> up { it.copy(tunEngine = v) } }
+                }
+                SwitchRow(stringResource(R.string.auto_start), s.autoStart) { v -> up { it.copy(autoStart = v) } }
+                SwitchRow(stringResource(R.string.keep_awake), s.keepAwake) { v -> up { it.copy(keepAwake = v) } }
+                val batteryOk = ctx.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
+                ActionRow(Ico.BOLT, stringResource(if (batteryOk) R.string.battery_row_ok else R.string.battery_row_ask)) {
                     if (batteryOk) {
                         Toast.makeText(ctx, ctx.getString(R.string.battery_already), Toast.LENGTH_SHORT).show()
                     } else {
@@ -81,92 +83,99 @@ fun SettingsScreen(
                             )
                         }
                     }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(if (batteryOk) R.string.battery_row_ok else R.string.battery_row_ask))
-            }
-            Label(stringResource(R.string.split_tunnel))
-            Chips(
-                listOf("off" to stringResource(R.string.split_off), "include" to stringResource(R.string.split_include), "exclude" to stringResource(R.string.split_exclude)),
-                s.splitMode
-            ) { v -> up { it.copy(splitMode = v) } }
-            if (s.splitMode != "off") {
-                OutlinedButton(onClick = openSplit, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.split_summary, s.splitApps.size))
+                }
+                Field(stringResource(R.string.split_tunnel)) {
+                    Chips(
+                        listOf("off" to stringResource(R.string.split_off), "include" to stringResource(R.string.split_include), "exclude" to stringResource(R.string.split_exclude)),
+                        s.splitMode
+                    ) { v -> up { it.copy(splitMode = v) } }
+                }
+                if (s.splitMode != "off") {
+                    ActionRow(Ico.SETTINGS, stringResource(R.string.split_summary, s.splitApps.size), onClick = openSplit)
                 }
             }
 
             // ---- Core and protocol
-            SectionTitle(stringResource(R.string.sec_core))
-            Label(stringResource(R.string.protocol))
-            Chips(Protocol.values().map { it to it.label }, s.protocol) { v -> up { it.copy(protocol = v) } }
-            Label(stringResource(R.string.transport))
-            Chips(listOf("h3" to "HTTP/3 (QUIC)", "h2" to "HTTP/2 (TCP)"), s.carrier) { v -> up { it.copy(carrier = v) } }
-            Label(stringResource(R.string.scan_level))
-            Chips(listOf("turbo", "balanced", "thorough", "verified", "ironclad").map { it to it }, s.scan) { v -> up { it.copy(scan = v) } }
-            Label(stringResource(R.string.noize))
-            Chips(
-                listOf("default" to stringResource(R.string.noize_default)) + listOf("off", "light", "firewall", "balanced", "gfw", "aggressive").map { it to it },
-                s.noize
-            ) { v -> up { it.copy(noize = v) } }
-            Label(stringResource(R.string.ip_version))
-            Chips(listOf("4" to "IPv4", "6" to "IPv6", "dual" to "IPv4 + IPv6"), s.ipVersion) { v -> up { it.copy(ipVersion = v) } }
-            SwitchRow(stringResource(R.string.quick_reconnect), s.quickReconnect) { v -> up { it.copy(quickReconnect = v) } }
-            SwitchRow(stringResource(R.string.fresh_after_drop), s.freshAfterDrop) { v -> up { it.copy(freshAfterDrop = v) } }
-            NumberRow(stringResource(R.string.max_tries), s.maxTries) { v -> up { it.copy(maxTries = v) } }
-            NumberRow(stringResource(R.string.retry_delay), s.retryDelayMs) { v -> up { it.copy(retryDelayMs = v) } }
-            NumberRow(stringResource(R.string.ping_fails), s.pingFails) { v -> up { it.copy(pingFails = v) } }
-            NumberRow(stringResource(R.string.ping_interval), s.pingIntervalSec) { v -> up { it.copy(pingIntervalSec = v) } }
-            TextRow(
-                stringResource(if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) R.string.endpoint_outer else R.string.endpoint),
-                s.endpoint, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint)
-            ) { v -> up { it.copy(endpoint = v.trim()) } }
-            if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) {
-                TextRow(stringResource(R.string.endpoint_inner), s.endpoint2, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint2)) { v -> up { it.copy(endpoint2 = v.trim()) } }
+            Group(stringResource(R.string.sec_core)) {
+                Field(stringResource(R.string.protocol)) {
+                    Chips(Protocol.values().map { it to it.label }, s.protocol) { v -> up { it.copy(protocol = v) } }
+                }
+                Field(stringResource(R.string.transport)) {
+                    Chips(listOf("h3" to "HTTP/3 (QUIC)", "h2" to "HTTP/2 (TCP)"), s.carrier) { v -> up { it.copy(carrier = v) } }
+                }
+                Field(stringResource(R.string.scan_level)) {
+                    Chips(listOf("turbo", "balanced", "thorough", "verified", "ironclad").map { it to it }, s.scan) { v -> up { it.copy(scan = v) } }
+                }
+                Field(stringResource(R.string.noize)) {
+                    Chips(
+                        listOf("default" to stringResource(R.string.noize_default)) + listOf("off", "light", "firewall", "balanced", "gfw", "aggressive").map { it to it },
+                        s.noize
+                    ) { v -> up { it.copy(noize = v) } }
+                }
+                Field(stringResource(R.string.ip_version)) {
+                    Chips(listOf("4" to "IPv4", "6" to "IPv6", "dual" to "IPv4 + IPv6"), s.ipVersion) { v -> up { it.copy(ipVersion = v) } }
+                }
+                SwitchRow(stringResource(R.string.quick_reconnect), s.quickReconnect) { v -> up { it.copy(quickReconnect = v) } }
+                SwitchRow(stringResource(R.string.fresh_after_drop), s.freshAfterDrop) { v -> up { it.copy(freshAfterDrop = v) } }
+                NumberRow(stringResource(R.string.max_tries), s.maxTries) { v -> up { it.copy(maxTries = v) } }
+                NumberRow(stringResource(R.string.retry_delay), s.retryDelayMs) { v -> up { it.copy(retryDelayMs = v) } }
+                NumberRow(stringResource(R.string.ping_fails), s.pingFails) { v -> up { it.copy(pingFails = v) } }
+                NumberRow(stringResource(R.string.ping_interval), s.pingIntervalSec) { v -> up { it.copy(pingIntervalSec = v) } }
+                TextRow(
+                    stringResource(if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) R.string.endpoint_outer else R.string.endpoint),
+                    s.endpoint, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint)
+                ) { v -> up { it.copy(endpoint = v.trim()) } }
+                if (s.protocol == Protocol.GOOL || s.protocol == Protocol.GOOL_CLASSIC || s.protocol == Protocol.MIM) {
+                    TextRow(stringResource(R.string.endpoint_inner), s.endpoint2, stringResource(R.string.endpoint_hint), isError = !Endpoints.valid(s.endpoint2)) { v -> up { it.copy(endpoint2 = v.trim()) } }
+                }
+                if (!Endpoints.valid(s.endpoint) || !Endpoints.valid(s.endpoint2)) {
+                    Hint(stringResource(R.string.endpoint_invalid), error = true)
+                } else {
+                    Hint(stringResource(R.string.endpoint_note))
+                }
+                TextRow(stringResource(R.string.upstream), s.upstream, stringResource(R.string.upstream_hint)) { v -> up { it.copy(upstream = v) } }
             }
-            if (!Endpoints.valid(s.endpoint) || !Endpoints.valid(s.endpoint2)) {
-                Text(stringResource(R.string.endpoint_invalid), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-            } else {
-                Text(stringResource(R.string.endpoint_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            TextRow(stringResource(R.string.upstream), s.upstream, stringResource(R.string.upstream_hint)) { v -> up { it.copy(upstream = v) } }
 
             // ---- Routing
-            SectionTitle(stringResource(R.string.sec_routing))
-            TextRow(stringResource(R.string.route_block), s.routeBlock, stringResource(R.string.route_hint)) { v -> up { it.copy(routeBlock = v) } }
-            TextRow(stringResource(R.string.route_direct), s.routeDirect, stringResource(R.string.route_hint)) { v -> up { it.copy(routeDirect = v) } }
-            TextRow(stringResource(R.string.dns), s.dns, stringResource(R.string.dns_hint)) { v -> up { it.copy(dns = v) } }
+            Group(stringResource(R.string.sec_routing)) {
+                TextRow(stringResource(R.string.route_block), s.routeBlock, stringResource(R.string.route_hint)) { v -> up { it.copy(routeBlock = v) } }
+                TextRow(stringResource(R.string.route_direct), s.routeDirect, stringResource(R.string.route_hint)) { v -> up { it.copy(routeDirect = v) } }
+                TextRow(stringResource(R.string.dns), s.dns, stringResource(R.string.dns_hint)) { v -> up { it.copy(dns = v) } }
+            }
 
             // ---- Psiphon
-            SectionTitle(stringResource(R.string.sec_psiphon))
-            RegionButton(s, true) { regionDialog = true }
-            Label(stringResource(R.string.psiphon_mode))
-            Chips(listOf("auto" to "Auto", "cdn" to "CDN"), s.psiphonMode) { v -> up { it.copy(psiphonMode = v) } }
+            Group(stringResource(R.string.sec_psiphon)) {
+                RegionButton(s, true) { regionDialog = true }
+                Field(stringResource(R.string.psiphon_mode)) {
+                    Chips(listOf("auto" to "Auto", "cdn" to "CDN"), s.psiphonMode) { v -> up { it.copy(psiphonMode = v) } }
+                }
+            }
 
             // ---- Tor
-            SectionTitle(stringResource(R.string.sec_tor))
-            Label(stringResource(R.string.bridges))
-            Chips(
-                listOf("auto" to stringResource(R.string.bridges_auto), "always" to stringResource(R.string.bridges_always), "never" to stringResource(R.string.bridges_never)),
-                s.torBridges
-            ) { v -> up { it.copy(torBridges = v) } }
+            Group(stringResource(R.string.sec_tor)) {
+                Field(stringResource(R.string.bridges)) {
+                    Chips(
+                        listOf("auto" to stringResource(R.string.bridges_auto), "always" to stringResource(R.string.bridges_always), "never" to stringResource(R.string.bridges_never)),
+                        s.torBridges
+                    ) { v -> up { it.copy(torBridges = v) } }
+                }
+            }
 
             // ---- Advanced
-            SectionTitle(stringResource(R.string.sec_advanced))
-            Label(stringResource(R.string.perf_profile))
-            Chips(listOf("auto" to "Auto", "low" to "Low", "medium" to "Medium", "high" to "High"), s.perf) { v -> up { it.copy(perf = v) } }
-            TextRow(stringResource(R.string.extra_args), s.extraArgs, stringResource(R.string.extra_args_hint)) { v -> up { it.copy(extraArgs = v) } }
-            NumberRow(stringResource(R.string.tun_mtu), s.tunMtu) { v -> up { it.copy(tunMtu = v) } }
-            NumberRow(stringResource(R.string.tcp_buffer), s.tcpBufferKb) { v -> up { it.copy(tcpBufferKb = v) } }
-            Text(stringResource(R.string.tunnel_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            NumberRow(stringResource(R.string.socks_port), s.socksPort) { v -> up { it.copy(socksPort = v) } }
-            SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
-            if (s.httpEnabled) NumberRow(stringResource(R.string.http_port), s.httpPort) { v -> up { it.copy(httpPort = v) } }
-            OutlinedButton(onClick = openLogs, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.open_logs)) }
-            OutlinedButton(
-                onClick = { confirmClear = true }, enabled = st.phase == Phase.IDLE, modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.clear_cache)) }
+            Group(stringResource(R.string.sec_advanced)) {
+                Field(stringResource(R.string.perf_profile)) {
+                    Chips(listOf("auto" to "Auto", "low" to "Low", "medium" to "Medium", "high" to "High"), s.perf) { v -> up { it.copy(perf = v) } }
+                }
+                TextRow(stringResource(R.string.extra_args), s.extraArgs, stringResource(R.string.extra_args_hint)) { v -> up { it.copy(extraArgs = v) } }
+                NumberRow(stringResource(R.string.tun_mtu), s.tunMtu) { v -> up { it.copy(tunMtu = v) } }
+                NumberRow(stringResource(R.string.tcp_buffer), s.tcpBufferKb) { v -> up { it.copy(tcpBufferKb = v) } }
+                Hint(stringResource(R.string.tunnel_note))
+                NumberRow(stringResource(R.string.socks_port), s.socksPort) { v -> up { it.copy(socksPort = v) } }
+                SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
+                if (s.httpEnabled) NumberRow(stringResource(R.string.http_port), s.httpPort) { v -> up { it.copy(httpPort = v) } }
+                ActionRow(Ico.LOGS, stringResource(R.string.open_logs), onClick = openLogs)
+                ActionRow(Ico.TRASH, stringResource(R.string.clear_cache), enabled = st.phase == Phase.IDLE, danger = true) { confirmClear = true }
+            }
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -176,7 +185,9 @@ fun SettingsScreen(
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text(stringResource(R.string.clear_cache)) },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            title = { Text(stringResource(R.string.clear_cache), fontWeight = FontWeight.Bold) },
             text = { Text(stringResource(R.string.clear_cache_warn)) },
             confirmButton = {
                 TextButton(onClick = {
