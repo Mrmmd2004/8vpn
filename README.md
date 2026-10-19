@@ -186,7 +186,7 @@ at once so apps fall back from QUIC to TCP. If the library is missing or fails t
 hev-socks5-tunnel automatically. The engine can be changed in Settings.
 
 `libbox.aar` is built by the `libbox` job of `.github/workflows/main.yml` (sing-box `v1.13.21`, tag
-`with_gvisor`, arm + arm64) and placed in `app/libs/`. Use the `singbox_ref` input to build another sing-box tag.
+`with_gvisor` + `with_clash_api` and a few small ones, arm + arm64) and placed in `app/libs/`. Use the `singbox_ref` input to build another sing-box tag.
 For a local Gradle build, put a `libbox.aar` into `app/libs/` first.
 
 ## موتور TUN با sing-box
