@@ -30,6 +30,11 @@ Jetpack Compose, Material 3, dark and light themes, English and Persian (RTL).
 - **Dark and light themes**, dynamic color on Android 12+, and smooth screen transitions.
 - **sing-box core works great.** The `libbox` TUN engine runs without problems and is the default VPN engine; hev-socks5-tunnel stays available as a fallback.
 
+## Download
+
+The latest builds are always published in [Releases](../../releases) (`8VPN-arm64-v8a.apk` for most phones, `8VPN-armeabi-v7a.apk` for older ones, or `8VPN-universal.apk` if you are unsure).
+Check the Telegram channel [@Clubapp8](https://t.me/Clubapp8) or X regularly to stay up to date with the newest versions.
+
 ## Features
 
 - **Two modes**: VPN (the whole device goes through the tunnel) or Proxy-only (a local SOCKS5 and optional HTTP proxy).
@@ -77,24 +82,6 @@ Ports: SOCKS5 `1819` (configurable), Tor `1820`, Psiphon `1821`, optional HTTP `
 
 > Please check each upstream repository for its current license terms.
 
-## Build with GitHub Actions
-
-1. Upload this project to your repository (`Mrmmd2004/8vpn`).
-2. Open **Actions → Build APKs → Run workflow** (or push to `main`, or push a tag like `v2.8` to also create a release).
-3. Download the `8VPN-apks` artifact:
-   `8VPN-armeabi-v7a.apk`, `8VPN-arm64-v8a.apk`, `8VPN-universal.apk` (v7a + v8a + x86_64).
-
-The workflow has three jobs: **native** (Aether, Psiphon, Lyrebird and hev-socks5-tunnel for three ABIs), **libbox** (the sing-box library as `libbox.aar`, arm + arm64) and **apk** (Gradle release build).
-The first build is slow (Rust + BoringSSL + Tor + Go). On x86_64 devices `libbox` is not included, so the app uses hev-socks5-tunnel there.
-
-**Signing (optional).** Without secrets the APKs are signed with a debug key. For a stable key add these repository secrets:
-`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
-
-**Versions.** `AETHER_REF`, `HEV_REF` and `SINGBOX_REF` at the top of `.github/workflows/main.yml` pick the upstream versions
-(defaults: Aether `v2.3.0`, hev-socks5-tunnel `2.19.0`, sing-box `v1.13.21`).
-When running the workflow by hand you can pass `aether_repo` (for example your own fork with a changed core), `aether_ref` (tag, branch or full commit hash) and `singbox_ref` (sing-box tag).
-For a local Gradle build, put a `libbox.aar` into `app/libs/` first.
-
 ## Notes
 
 - Aether is AGPL-3.0, so this project is AGPL-3.0 too (see [LICENSE](LICENSE)).
@@ -122,6 +109,11 @@ For a local Gradle build, put a `libbox.aar` into `app/libs/` first.
 - **تنظیمات مرتب‌تر.** گزینه‌ها در کارت‌های جدا (عمومی، هسته و پروتکل، مسیریابی، Psiphon، Tor، پیشرفته) دسته‌بندی شده‌اند.
 - **تم تیره و روشن**، رنگ پویا در اندروید ۱۲+ و انتقال نرم بین صفحه‌ها.
 - **هسته‌ی sing-box بدون مشکل کار می‌کند.** موتور TUN با `libbox` پیش‌فرض حالت VPN است و hev-socks5-tunnel به‌عنوان جایگزین در دسترس می‌ماند.
+
+## دانلود
+
+جدیدترین نسخه‌ها همیشه در بخش [Releases](../../releases) منتشر می‌شوند (فایل `8VPN-arm64-v8a.apk` برای بیشتر گوشی‌ها، `8VPN-armeabi-v7a.apk` برای گوشی‌های قدیمی‌تر و `8VPN-universal.apk` اگر مطمئن نیستید).
+برای باخبر شدن از جدیدترین نسخه‌ها، کانال تلگرام [@Clubapp8](https://t.me/Clubapp8) یا X را همیشه چک کنید.
 
 ## امکانات
 
@@ -177,24 +169,6 @@ DNS را خود sing-box (روی TCP از طریق پروکسی) جواب می�
 | **hev-socks5-tunnel** | موتور جایگزین TUN به SOCKS5 | <https://github.com/heiher/hev-socks5-tunnel> | MIT |
 
 > مجوز دقیق و فعلی هر پروژه را در مخزن اصلی خودش بررسی کنید.
-
-## ساخت با GitHub Actions
-
-1. پروژه را در مخزن خودتان (`Mrmmd2004/8vpn`) آپلود کنید.
-2. به **Actions ← Build APKs ← Run workflow** بروید (یا روی `main` پوش کنید، یا یک تگ مثل `v2.8` بزنید تا ریلیز هم ساخته شود).
-3. آرتیفکت `8VPN-apks` را دانلود کنید:
-   `8VPN-armeabi-v7a.apk`، `8VPN-arm64-v8a.apk` و `8VPN-universal.apk` (شامل v7a و v8a و x86_64).
-
-ورک‌فلو سه کار دارد: **native** (ساخت Aether و Psiphon و Lyrebird و hev-socks5-tunnel برای سه معماری)، **libbox** (کتابخانه‌ی sing-box به‌صورت `libbox.aar` برای arm و arm64) و **apk** (بیلد ریلیز با Gradle).
-بیلد اول کند است (Rust و BoringSSL و Tor و Go). روی دستگاه‌های x86_64 کتابخانه‌ی `libbox` وجود ندارد و برنامه همان‌جا از hev-socks5-tunnel استفاده می‌کند.
-
-**امضا (اختیاری).** بدون سکرت، APKها با کلید دیباگ امضا می‌شوند. برای کلید ثابت این سکرت‌ها را به مخزن اضافه کنید:
-`KEYSTORE_BASE64` و `KEYSTORE_PASSWORD` و `KEY_ALIAS` و `KEY_PASSWORD`.
-
-**نسخه‌ها.** مقادیر `AETHER_REF` و `HEV_REF` و `SINGBOX_REF` بالای فایل `.github/workflows/main.yml` نسخه‌ی پروژه‌های بالادستی را مشخص می‌کنند
-(پیش‌فرض‌ها: Aether برابر `v2.3.0`، hev-socks5-tunnel برابر `2.19.0` و sing-box برابر `v1.13.21`).
-هنگام اجرای دستی ورک‌فلو می‌توانید `aether_repo` (مثلاً فورک خودتان با هسته‌ی تغییرداده‌شده)، `aether_ref` (تگ، برنچ یا هش کامل کامیت) و `singbox_ref` (تگ sing-box) را بدهید.
-برای بیلد محلی با Gradle، اول یک فایل `libbox.aar` را در `app/libs/` بگذارید.
 
 ## نکته‌ها
 
