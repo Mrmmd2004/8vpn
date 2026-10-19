@@ -155,7 +155,8 @@ jobs:
 
       # Same gomobile fork, flags and Java package as sing-box's own Android build
       # (cmd/internal/build_libbox), with only the features this app needs:
-      # the gVisor TUN stack. arm + arm64 cover the APKs that are published.
+      # the gVisor TUN stack and the Clash API that libbox's service always creates (no Tailscale, no Naive).
+      # arm + arm64 cover the APKs that are published.
       - name: Build libbox.aar
         working-directory: sing-box
         env:
@@ -173,7 +174,7 @@ jobs:
             -libname=box \
             -trimpath -buildvcs=false \
             -ldflags "-X github.com/sagernet/sing-box/constant.Version=${version} -X internal/godebug.defaultGODEBUG=multipathtcp=0 -s -w -buildid= -checklinkname=0" \
-            -tags "with_gvisor,badlinkname,tfogo_checklinkname0" \
+            -tags "with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0" \
             ./experimental/libbox
           ls -l libbox.aar
           test -s libbox.aar || { echo "ERROR: libbox.aar was not produced"; exit 1; }
