@@ -511,10 +511,10 @@ class TunnelService : VpnService() {
         yml += listOf("tunnel:", "  mtu: ${s.mtu()}", "  ipv4: 198.18.0.1")
         if (v6) yml += "  ipv6: 'fc00::1'"
         yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1")
-        // Psiphon/Tor exits carry TCP only. A UDP relay request to them is refused, and apps that
-        // keep retrying QUIC then hammer the exit with refused connections; so in remote-names mode
-        // no UDP relay is configured at all (apps fall back from QUIC to TCP at once).
-        if (!remoteDns) yml += "  udp: 'udp'"
+        // Standard SOCKS5 UDP ASSOCIATE for every engine mode except hev-tcp. Leaving this line out
+        // is not "no UDP": hev then defaults to its own UDP-over-TCP command (0x05), which Psiphon's
+        // SOCKS proxy rejects once per flow, so apps that retry QUIC flood it with refused connections.
+        if (s.tunEngine != "hev-tcp") yml += "  udp: 'udp'"
         if (remoteDns) {
             yml += listOf(
                 "mapdns:", "  address: 198.18.0.2", "  port: 53", "  network: 100.64.0.0",

@@ -110,8 +110,11 @@ object SingBox {
         val rules = JSONArray()
             .put(JSONObject().put("action", "sniff"))
             .put(JSONObject().put("protocol", "dns").put("action", "hijack-dns"))
-        // Psiphon and Tor exits carry TCP only: refuse other UDP at once so apps drop QUIC and use TCP.
-        if (s.route.slow) rules.put(JSONObject().put("network", "udp").put("action", "reject"))
+        // QUIC (UDP 443) is refused at once on every route, so apps such as X/Twitter, YouTube and
+        // Instagram fall back to TCP immediately instead of waiting for a slow UDP relay and then
+        // backing off for a while. Tor has no UDP at all, so all other UDP is refused there too.
+        rules.put(JSONObject().put("network", "udp").put("port", 443).put("action", "reject"))
+        if (s.route.usesTor) rules.put(JSONObject().put("network", "udp").put("action", "reject"))
         val root = JSONObject()
             .put("log", JSONObject().put("level", "warn"))
             .put(
