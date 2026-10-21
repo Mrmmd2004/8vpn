@@ -20,7 +20,9 @@
 
 A lightweight Android VPN client built on the **Aether** core, with **sing-box** (libbox) as the default TUN engine and **hev-socks5-tunnel** as a fallback.
 Jetpack Compose, Material 3, dark and light themes, English and Persian (RTL).
+
 Win version : https://github.com/Mrmmd2004/8VPN_Windows
+
 📢 Telegram channel: <https://t.me/Clubapp8>
 
 ## What's new in 2.8
@@ -100,7 +102,9 @@ Ports: SOCKS5 `1819` (configurable), Tor `1820`, Psiphon `1821`, optional HTTP `
 
 یک کلاینت سبک VPN برای اندروید، ساخته‌شده روی هسته‌ی **Aether**، با **sing-box** (کتابخانه‌ی libbox) به‌عنوان موتور پیش‌فرض TUN و **hev-socks5-tunnel** به‌عنوان جایگزین.
 با Jetpack Compose و Material 3، تم تیره و روشن، با رابط فارسی (راست‌به‌چپ) و انگلیسی.
+
 نسخه ویندوز :https://github.com/Mrmmd2004/8VPN_Windows
+
 📢 کانال تلگرام: <https://t.me/Clubapp8>
 
 ## تازه‌های نسخه‌ی ۲.۸
