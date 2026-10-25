@@ -226,7 +226,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             val flagCc = if (live) exitCc ?: s.psiphonRegion.takeIf { s.route.usesPsiphon && it.length == 2 } else null
             if (flagCc != null) {
                 Spacer(Modifier.width(8.dp))
-                Text(PsiphonRegions.flag(flagCc), style = MaterialTheme.typography.titleMedium)
+                CountryFlag(flagCc)
             }
         }
         Spacer(Modifier.height(8.dp))
