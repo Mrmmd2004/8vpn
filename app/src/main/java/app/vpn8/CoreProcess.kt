@@ -12,6 +12,8 @@ class CoreProcess(private val ctx: Context) {
     val alive: Boolean get() = proc?.isAlive == true
 
     @Volatile var psiphonReady = false
+    /** Aether finished validating the tunnel and started its SOCKS server (the port can be open earlier). */
+    @Volatile var socksReady = false
     /** Psiphon could not open its database (a leftover helper still holds the lock). */
     @Volatile var datastoreFailed = false
 
@@ -39,6 +41,7 @@ class CoreProcess(private val ctx: Context) {
             try {
                 p.inputStream.bufferedReader().forEachLine {
                     if (it.contains("psiphon is ready")) psiphonReady = true
+                    if (it.contains("socks5 server listening") || it.contains("tunnel validated")) socksReady = true
                     if (it.contains("tryDatastoreOpenDB") || it.contains("openDataStore")) datastoreFailed = true
                     Engine.log(it)
                 }

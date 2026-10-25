@@ -283,7 +283,10 @@ class TunnelService : VpnService() {
             // WARP tunnel is validated, so wait for both, plus Psiphon's own "ready" line.
             val ready = withContext(Dispatchers.IO) {
                 portOpen(port) && (port == s.socksPort || portOpen(s.socksPort))
-            } && (!s.route.usesPsiphon || c.psiphonReady || waited > 60_000)
+            } && (!s.route.usesPsiphon || c.psiphonReady || waited > 60_000) &&
+                // Plain Aether: the port can accept connections before the tunnel is validated, so do
+                // not bring up the VPN (or show Connected) until Aether says it is really ready.
+                (s.route != Route.AETHER || c.socksReady || waited > 90_000)
             if (ready) return true
             delay(500)
         }

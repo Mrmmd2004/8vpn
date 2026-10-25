@@ -45,7 +45,7 @@ data class Settings(
     val autoStart: Boolean = false,
     val keepAwake: Boolean = true,
     val route: Route = Route.AETHER,
-    val protocol: Protocol = Protocol.WIREGUARD,
+    val protocol: Protocol = Protocol.MASQUE,
     val carrier: String = "h2", // MASQUE transport: HTTP/2 by default
     val scan: String = "turbo",
     val noize: String = "default",
