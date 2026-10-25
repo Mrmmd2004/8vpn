@@ -84,7 +84,7 @@ jobs:
         run: |
           under=$(echo "${{ matrix.target }}" | tr '-' '_')
           export "BORING_BSSL_RUST_CPPLIB_${under}=static:-bundle=c++"
-          cargo ndk -t ${{ matrix.abi }} --platform 29 build --release --features tor
+          cargo ndk -t ${{ matrix.abi }} --platform 26 build --release --features tor
           bin="target/${{ matrix.target }}/release/aether"
           needed=$(readelf -d "$bin" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p')
           echo "aether NEEDED: $needed"
