@@ -5,6 +5,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -261,6 +266,30 @@ private fun LinkRow(ico: Ico, title: String, sub: String, onClick: () -> Unit) {
 
 private data class AppItem(val label: String, val pkg: String)
 
+private val iconCache = android.util.LruCache<String, ImageBitmap>(200)
+
+/** The app's real launcher icon (loaded off the main thread and cached); the first letter shows until it is ready. */
+@Composable
+private fun AppIcon(pkg: String, label: String) {
+    val ctx = LocalContext.current
+    val c = MaterialTheme.colorScheme
+    val icon by produceState<ImageBitmap?>(iconCache.get(pkg), pkg) {
+        if (value == null) {
+            value = withContext(Dispatchers.IO) {
+                runCatching { ctx.packageManager.getApplicationIcon(pkg).toBitmap(96, 96).asImageBitmap() }.getOrNull()
+            }?.also { iconCache.put(pkg, it) }
+        }
+    }
+    val bmp = icon
+    if (bmp != null) {
+        Image(bmp, contentDescription = label, modifier = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)))
+    } else {
+        Box(Modifier.size(38.dp).clip(CircleShape).background(c.primary.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+            Text(label.take(1).uppercase(), color = c.primary, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
 @Composable
 fun SplitScreen(back: () -> Unit) {
     val ctx = LocalContext.current
@@ -300,9 +329,7 @@ fun SplitScreen(back: () -> Unit) {
                         }.padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(Modifier.size(38.dp).clip(CircleShape).background(c.primary.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                        Text(a.label.take(1).uppercase(), color = c.primary, fontWeight = FontWeight.Bold)
-                    }
+                    AppIcon(a.pkg, a.label)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(a.label, maxLines = 1, style = MaterialTheme.typography.bodyMedium)
                         Text(a.pkg, fontSize = 11.sp, maxLines = 1, color = c.onSurfaceVariant)
