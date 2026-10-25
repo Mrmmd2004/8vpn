@@ -140,4 +140,16 @@
     <string name="endpoint_hint">IP:port, e.g. 162.159.192.1:2408</string>
     <string name="endpoint_note">Leave empty to scan automatically. When set, the scan is skipped and this gateway is used.</string>
     <string name="endpoint_invalid">Invalid endpoint. Use IP:port (IPv6 as [addr]:port). Invalid values are ignored.</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_download">Update now</string>
+    <string name="update_tap">Tap to check GitHub for a newer version</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_latest">You have the latest version</string>
+    <string name="update_failed">Could not check. Check your connection and try again</string>
+    <string name="update_available">Version %1$s is available. Tap to download</string>
+    <string name="update_install">Install update</string>
+    <string name="update_install_tap">Downloaded. Tap to install</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_downloading_pct">Downloading… %1$d%%</string>
+    <string name="update_allow">Allow installing from 8 VPN, then tap again</string>
 </resources>

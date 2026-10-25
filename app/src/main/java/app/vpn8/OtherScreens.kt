@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 const val GITHUB_URL = "https://github.com/Mrmmd2004/8vpn"
@@ -115,7 +117,10 @@ private fun LogLine(line: String) {
 @Composable
 fun AboutScreen(back: () -> Unit) {
     val uri = LocalUriHandler.current
+    val ctx = LocalContext.current
     val c = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    var upd by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
     Page(stringResource(R.string.about), back) {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -130,8 +135,45 @@ fun AboutScreen(back: () -> Unit) {
             AppCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     InfoRow(stringResource(R.string.app_version), BuildConfig.VERSION_NAME)
-                    InfoRow(stringResource(R.string.core_version), "2.3.0")
+                    InfoRow(stringResource(R.string.core_version), "2.4.0")
                     InfoRow(stringResource(R.string.tunnel_version), "2.19.0")
+                }
+            }
+            UpdateRow(upd) {
+                when (val st = upd) {
+                    is UpdateState.Available -> {
+                        if (!st.info.isApk) {
+                            uri.openUri(st.info.url)
+                        } else {
+                            upd = UpdateState.Downloading(-1)
+                            scope.launch {
+                                upd = Updater.download(ctx, st.info.url) { p -> upd = UpdateState.Downloading(p) }.fold(
+                                    onSuccess = { f ->
+                                        if (!Updater.install(ctx, f)) {
+                                            Toast.makeText(ctx, R.string.update_allow, Toast.LENGTH_LONG).show()
+                                        }
+                                        UpdateState.Downloaded(f)
+                                    },
+                                    onFailure = { UpdateState.Failed }
+                                )
+                            }
+                        }
+                    }
+                    is UpdateState.Downloaded -> {
+                        if (!Updater.install(ctx, st.file)) {
+                            Toast.makeText(ctx, R.string.update_allow, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    is UpdateState.Downloading, UpdateState.Checking -> {}
+                    else -> {
+                        upd = UpdateState.Checking
+                        scope.launch {
+                            upd = Updater.check().fold(
+                                onSuccess = { if (it.newer) UpdateState.Available(it) else UpdateState.UpToDate },
+                                onFailure = { UpdateState.Failed }
+                            )
+                        }
+                    }
                 }
             }
             LinkRow(Ico.CODE, stringResource(R.string.github), "Mrmmd2004/8vpn") { uri.openUri(GITHUB_URL) }
@@ -144,6 +186,49 @@ fun AboutScreen(back: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+private sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data object Failed : UpdateState
+    data class Available(val info: Updater.Info) : UpdateState
+    data class Downloading(val pct: Int) : UpdateState
+    data class Downloaded(val file: java.io.File) : UpdateState
+}
+
+@Composable
+private fun UpdateRow(st: UpdateState, onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    val avail = st is UpdateState.Available || st is UpdateState.Downloaded
+    val title = when (st) {
+        is UpdateState.Available -> stringResource(R.string.update_download)
+        is UpdateState.Downloading -> stringResource(R.string.update_download)
+        is UpdateState.Downloaded -> stringResource(R.string.update_install)
+        else -> stringResource(R.string.update_check)
+    }
+    val sub = when (st) {
+        UpdateState.Idle -> stringResource(R.string.update_tap)
+        UpdateState.Checking -> stringResource(R.string.update_checking)
+        UpdateState.UpToDate -> stringResource(R.string.update_latest)
+        UpdateState.Failed -> stringResource(R.string.update_failed)
+        is UpdateState.Available -> stringResource(R.string.update_available, st.info.tag)
+        is UpdateState.Downloading -> if (st.pct >= 0) stringResource(R.string.update_downloading_pct, st.pct) else stringResource(R.string.update_downloading)
+        is UpdateState.Downloaded -> stringResource(R.string.update_install_tap)
+    }
+    AppCard(Modifier.clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(c.primary.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                Icon8(if (avail) Ico.DOWN else Ico.REFRESH, c.primary, 22.dp)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                Text(sub, fontSize = 12.sp, color = if (st == UpdateState.Failed) c.error else if (avail) c.primary else c.onSurfaceVariant)
+            }
         }
     }
 }

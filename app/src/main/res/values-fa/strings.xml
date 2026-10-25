@@ -135,4 +135,16 @@
     <string name="endpoint_hint">IP:پورت، مثلاً 162.159.192.1:2408</string>
     <string name="endpoint_note">برای اسکن خودکار خالی بگذار. اگر پر شود اسکن انجام نمی‌شود و همین گیت‌وی استفاده می‌شود.</string>
     <string name="endpoint_invalid">اندپوینت نامعتبر است. از قالب IP:پورت استفاده کن (آی‌پی ۶ به شکل [addr]:port). مقدارهای نامعتبر نادیده گرفته می‌شوند.</string>
+    <string name="update_check">بررسی به‌روزرسانی</string>
+    <string name="update_download">به‌روزرسانی</string>
+    <string name="update_tap">برای بررسی نسخه‌ی جدید در گیت‌هاب بزنید</string>
+    <string name="update_checking">در حال بررسی…</string>
+    <string name="update_latest">نسخه‌ی شما آخرین نسخه است</string>
+    <string name="update_failed">بررسی انجام نشد. اتصال را چک کنید و دوباره امتحان کنید</string>
+    <string name="update_available">نسخه‌ی %1$s موجود است. برای دانلود بزنید</string>
+    <string name="update_install">نصب به‌روزرسانی</string>
+    <string name="update_install_tap">دانلود شد. برای نصب بزنید</string>
+    <string name="update_downloading">در حال دانلود…</string>
+    <string name="update_downloading_pct">در حال دانلود… %1$d%%</string>
+    <string name="update_allow">نصب از طرف 8 VPN را مجاز کنید و دوباره بزنید</string>
 </resources>
