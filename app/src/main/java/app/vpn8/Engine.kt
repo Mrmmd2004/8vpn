@@ -13,6 +13,8 @@ object Engine {
     val rxBps = MutableStateFlow(0L)
     val txBps = MutableStateFlow(0L)
     val exitInfo = MutableStateFlow<String?>(null)
+    /** Two-letter country code of the exit IP (null = unknown yet); drives the flag next to the status. */
+    val exitCountry = MutableStateFlow<String?>(null)
     /** Measured download speed through the tunnel in bytes/s (null = not measured yet). */
     val speedBps = MutableStateFlow<Long?>(null)
     val logs = MutableStateFlow<List<String>>(emptyList())
@@ -33,6 +35,7 @@ object Engine {
         rxBps.value = 0
         txBps.value = 0
         exitInfo.value = null
+        exitCountry.value = null
         speedBps.value = null
     }
 }

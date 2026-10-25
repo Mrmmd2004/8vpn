@@ -97,6 +97,7 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
     val rx by Engine.rxBps.collectAsStateWithLifecycle()
     val tx by Engine.txBps.collectAsStateWithLifecycle()
     val exit by Engine.exitInfo.collectAsStateWithLifecycle()
+    val exitCc by Engine.exitCountry.collectAsStateWithLifecycle()
     val speed by Engine.speedBps.collectAsStateWithLifecycle()
     val logs by Engine.logs.collectAsStateWithLifecycle()
 
@@ -221,6 +222,12 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = statusColor)
+            // Country flag of the exit IP, shown next to "Connected" (like the Windows app).
+            val flagCc = if (live) exitCc ?: s.psiphonRegion.takeIf { s.route.usesPsiphon && it.length == 2 } else null
+            if (flagCc != null) {
+                Spacer(Modifier.width(8.dp))
+                Text(PsiphonRegions.flag(flagCc), style = MaterialTheme.typography.titleMedium)
+            }
         }
         Spacer(Modifier.height(8.dp))
         val showAttempt = st.phase == Phase.RECONNECTING || (st.phase == Phase.CONNECTING && st.attempt > 1)

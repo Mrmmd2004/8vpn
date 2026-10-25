@@ -198,6 +198,7 @@ class TunnelService : VpnService() {
                 speedJob.cancel()
                 Engine.pingMs.value = null
                 Engine.exitInfo.value = null
+                Engine.exitCountry.value = null
                 Engine.speedBps.value = null
                 if (networkChanged) {
                     // Wi-Fi <-> mobile data (or a new Wi-Fi): the old sockets are dead, so reconnect at
@@ -393,10 +394,18 @@ class TunnelService : VpnService() {
     }
 
     private suspend fun fetchExit(port: Int) {
-        val r = withContext(Dispatchers.IO) { Socks.httpGet(port, "www.cloudflare.com", "/cdn-cgi/trace", 15_000) } ?: return
+        // The tunnel (especially Psiphon) may need a moment: retry a few times before giving up.
+        var r: Pair<Long, String>? = null
+        for (i in 0 until 4) {
+            r = withContext(Dispatchers.IO) { Socks.httpGet(port, "www.cloudflare.com", "/cdn-cgi/trace", 15_000) }
+            if (r != null) break
+            delay(3000)
+        }
+        if (r == null) return
         val map = r.second.lines().mapNotNull { l -> l.split("=", limit = 2).takeIf { it.size == 2 } }.associate { it[0] to it[1].trim() }
         val ip = map["ip"] ?: return
         Engine.exitInfo.value = if (map["loc"] != null) "$ip (${map["loc"]})" else ip
+        Engine.exitCountry.value = map["loc"]?.trim()?.uppercase()?.takeIf { it.length == 2 && it.all { ch -> ch in 'A'..'Z' } }
     }
 
     // ---------------------------------------------------------------- network
