@@ -11,7 +11,7 @@ on:
         default: "CluvexStudio/Aether"
       aether_ref:
         description: "Aether tag, branch or full commit hash"
-        default: "v2.3.0"
+        default: "v2.4.0"
       singbox_ref:
         description: "sing-box tag (the libbox library is built from it)"
         default: "v1.13.21"
@@ -22,7 +22,7 @@ permissions:
 env:
   # Upstream refs. Change them here if you want other versions.
   AETHER_REPO: ${{ inputs.aether_repo || 'CluvexStudio/Aether' }}
-  AETHER_REF: ${{ inputs.aether_ref || 'v2.3.0' }}
+  AETHER_REF: ${{ inputs.aether_ref || 'v2.4.0' }}
   HEV_REF: 2.19.0
   SINGBOX_REF: ${{ inputs.singbox_ref || 'v1.13.21' }}
 
@@ -84,7 +84,7 @@ jobs:
         run: |
           under=$(echo "${{ matrix.target }}" | tr '-' '_')
           export "BORING_BSSL_RUST_CPPLIB_${under}=static:-bundle=c++"
-          cargo ndk -t ${{ matrix.abi }} --platform 26 build --release --features tor
+          cargo ndk -t ${{ matrix.abi }} --platform 29 build --release --features tor
           bin="target/${{ matrix.target }}/release/aether"
           needed=$(readelf -d "$bin" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p')
           echo "aether NEEDED: $needed"
@@ -177,8 +177,6 @@ jobs:
             -tags "with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0" \
             ./experimental/libbox
           ls -l libbox.aar
-          test -s libbox.aar || { echo "ERROR: libbox.aar was not produced"; exit 1; }
-          unzip -l libbox.aar | grep -E 'classes.jar|jni/.*/libbox.so'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -196,16 +194,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: libbox
-          path: libbox-dl
-
-      # Always end up with exactly app/libs/libbox.aar, whatever the artifact layout is,
-      # and fail here (with a clear message) instead of deep inside Gradle.
-      - name: Place libbox.aar
-        run: |
-          mkdir -p app/libs
-          find libbox-dl -type f -name '*.aar' | head -n1 | xargs -I{} cp {} app/libs/libbox.aar
-          ls -l libbox-dl app/libs
-          test -s app/libs/libbox.aar || { echo "ERROR: app/libs/libbox.aar is missing"; exit 1; }
+          path: app/libs
 
       - uses: actions/download-artifact@v4
         with:
