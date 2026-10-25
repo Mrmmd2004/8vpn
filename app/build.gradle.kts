@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "app.vpn8"
-        minSdk = 29
+        minSdk = 26
         targetSdk = 35
         versionCode = 29
         versionName = "3.8"
