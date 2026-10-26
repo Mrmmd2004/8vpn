@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -145,41 +146,22 @@ fun AboutScreen(back: () -> Unit) {
                 }
             }
             UpdateRow(upd) {
-                when (val st = upd) {
-                    is UpdateState.Available -> {
-                        if (!st.info.isApk) {
-                            uri.openUri(st.info.url)
-                        } else {
-                            upd = UpdateState.Downloading(-1)
-                            scope.launch {
-                                upd = Updater.download(ctx, st.info.url) { p -> upd = UpdateState.Downloading(p) }.fold(
-                                    onSuccess = { f ->
-                                        if (!Updater.install(ctx, f)) {
-                                            Toast.makeText(ctx, R.string.update_allow, Toast.LENGTH_LONG).show()
-                                        }
-                                        UpdateState.Downloaded(f)
-                                    },
-                                    onFailure = { UpdateState.Failed }
-                                )
-                            }
-                        }
-                    }
-                    is UpdateState.Downloaded -> {
-                        if (!Updater.install(ctx, st.file)) {
-                            Toast.makeText(ctx, R.string.update_allow, Toast.LENGTH_LONG).show()
-                        }
-                    }
-                    is UpdateState.Downloading, UpdateState.Checking -> {}
-                    else -> {
-                        upd = UpdateState.Checking
-                        scope.launch {
-                            upd = Updater.check().fold(
-                                onSuccess = { if (it.newer) UpdateState.Available(it) else UpdateState.UpToDate },
-                                onFailure = { UpdateState.Failed }
-                            )
-                        }
+                if (upd != UpdateState.Checking) {
+                    upd = UpdateState.Checking
+                    scope.launch {
+                        upd = Updater.check().fold(
+                            onSuccess = { if (it.newer) UpdateState.Available(it) else UpdateState.UpToDate },
+                            onFailure = { UpdateState.Failed }
+                        )
                     }
                 }
+            }
+            (upd as? UpdateState.Available)?.let { st ->
+                Button(
+                    onClick = { uri.openUri(st.info.url) },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) { Text(stringResource(R.string.update_open_github), fontWeight = FontWeight.SemiBold) }
             }
             LinkRow(Ico.CODE, stringResource(R.string.github), "Mrmmd2004/8vpn") { uri.openUri(GITHUB_URL) }
             LinkRow(Ico.SEND, stringResource(R.string.telegram), "@Clubapp8") { uri.openUri(TELEGRAM_URL) }
@@ -201,28 +183,19 @@ private sealed interface UpdateState {
     data object UpToDate : UpdateState
     data object Failed : UpdateState
     data class Available(val info: Updater.Info) : UpdateState
-    data class Downloading(val pct: Int) : UpdateState
-    data class Downloaded(val file: java.io.File) : UpdateState
 }
 
 @Composable
 private fun UpdateRow(st: UpdateState, onClick: () -> Unit) {
     val c = MaterialTheme.colorScheme
-    val avail = st is UpdateState.Available || st is UpdateState.Downloaded
-    val title = when (st) {
-        is UpdateState.Available -> stringResource(R.string.update_download)
-        is UpdateState.Downloading -> stringResource(R.string.update_download)
-        is UpdateState.Downloaded -> stringResource(R.string.update_install)
-        else -> stringResource(R.string.update_check)
-    }
+    val avail = st is UpdateState.Available
+    val title = stringResource(R.string.update_check)
     val sub = when (st) {
         UpdateState.Idle -> stringResource(R.string.update_tap)
         UpdateState.Checking -> stringResource(R.string.update_checking)
         UpdateState.UpToDate -> stringResource(R.string.update_latest)
         UpdateState.Failed -> stringResource(R.string.update_failed)
         is UpdateState.Available -> stringResource(R.string.update_available, st.info.tag)
-        is UpdateState.Downloading -> if (st.pct >= 0) stringResource(R.string.update_downloading_pct, st.pct) else stringResource(R.string.update_downloading)
-        is UpdateState.Downloaded -> stringResource(R.string.update_install_tap)
     }
     AppCard(Modifier.clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

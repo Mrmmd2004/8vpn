@@ -56,6 +56,8 @@ class TunnelService : VpnService() {
     /** Last time the TUN engine reported data arriving for the apps (SystemClock.elapsedRealtime). */
     @Volatile private var lastRxAt = 0L
     private var psiSlot = 0
+    @Volatile private var curSettings: Settings? = null
+    @Volatile private var curPort = 0
     private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
 
@@ -72,16 +74,25 @@ class TunnelService : VpnService() {
                 if (foreground) nm.notify(NOTIF_ID, notification(textFor(st)))
             }
         }
+        scope.launch {
+            Engine.paused.collect {
+                if (foreground) nm.notify(NOTIF_ID, notification(textFor(Engine.status.value)))
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> stopSession()
             // Only meaningful while a link is up; the monitor loop picks the flag up.
+            ACTION_PAUSE -> pauseVpn()
+            ACTION_RESUME -> resumeVpn()
             ACTION_RESCAN -> if (Engine.status.value.phase == Phase.CONNECTED) rescanRequested = true
             else -> startSession()
         }
-        return START_NOT_STICKY
+        // STICKY: if the system or the phone maker's battery manager kills the process while the VPN
+        // is on, Android starts the service again and it reconnects, instead of staying off.
+        return START_STICKY
     }
 
     override fun onRevoke() {
@@ -103,11 +114,44 @@ class TunnelService : VpnService() {
         Engine.logs.value = emptyList()
         Engine.lastReason.value = null
         Engine.resetLive()
+        Engine.paused.value = false
         Engine.status.value = Status(Phase.CONNECTING, 1)
         networkChanged = false
         psiSlot = 0
         watchNetwork()
         job = scope.launch { run(s) }
+    }
+
+    /** Stop button: closes the VPN interface (key icon gone) but leaves the core running. */
+    private fun pauseVpn() {
+        if (stopping || Engine.paused.value) return
+        if (Engine.status.value.phase != Phase.CONNECTED || !SettingsStore.current.vpnMode) return
+        Engine.paused.value = true
+        scope.launch {
+            withContext(Dispatchers.IO) { stopTunSide() }
+            Engine.rxBps.value = 0
+            Engine.txBps.value = 0
+            Engine.log("VPN paused: interface off, core still running")
+        }
+    }
+
+    /** Start button: brings the VPN interface back on the already running core, so it is instant. */
+    private fun resumeVpn() {
+        if (stopping || !Engine.paused.value) return
+        val s = curSettings ?: return
+        val port = curPort
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                synchronized(this@TunnelService) { if (tun == null) bringUpTun(s, port) else true }
+            }
+            if (ok) {
+                lastRxAt = SystemClock.elapsedRealtime()
+                Engine.paused.value = false
+                Engine.log("VPN resumed")
+            } else {
+                Engine.log("Could not bring the VPN back, try again")
+            }
+        }
     }
 
     private fun stopSession() {
@@ -134,6 +178,7 @@ class TunnelService : VpnService() {
     private suspend fun finish(error: String?) {
         teardown()
         Engine.resetLive()
+        Engine.paused.value = false
         Engine.status.value = Status(Phase.IDLE, error = error)
         foreground = false
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -143,6 +188,7 @@ class TunnelService : VpnService() {
     private suspend fun run(base: Settings) {
         var s = base
         val port = ArgBuilder.exitPort(s)
+        curPort = port
         var failures = 0
         var cycle = 0
         var everUp = false
@@ -171,12 +217,15 @@ class TunnelService : VpnService() {
         while (currentCoroutineContext().isActive) {
             val attempt = failures + 1
             Engine.status.value = Status(if (everUp) Phase.RECONNECTING else Phase.CONNECTING, attempt)
+            if (everUp) awaitNetwork()
             val fresh = cycle > 0 || forceFresh
             forceFresh = false
             Engine.log("Starting core, attempt $attempt of ${s.tries()}" + if (fresh) " (fresh scan)" else "")
 
             if (startCore(s, port, fresh = fresh)) {
-                if (s.vpnMode && tun == null && !bringUpTun(s, port)) {
+                curSettings = s
+                // While paused (Stop button) the core runs but the VPN interface stays off.
+                if (s.vpnMode && tun == null && !Engine.paused.value && !bringUpTun(s, port)) {
                     finish(getString(R.string.vpn_iface_failed))
                     return
                 }
@@ -241,15 +290,34 @@ class TunnelService : VpnService() {
                     failures = 0
                     cycle++
                     if (cycle >= 2) {
+                        if (!everUp) {
+                            stopCore()
+                            finish(getString(R.string.connect_failed))
+                            return
+                        }
+                        // The link worked before, so a failure now is usually the phone being offline
+                        // (screen off, Doze, no signal). Do not turn the VPN off: keep trying slowly
+                        // and come back by itself when the network returns.
+                        cycle = 1
+                        Engine.log("Still offline. The VPN stays on and keeps trying every 20 s")
                         stopCore()
-                        finish(getString(R.string.connect_failed))
-                        return
+                        delay(20_000)
                     }
                     Engine.log("No luck. Dropping everything and starting over with a fresh scan")
                 }
             }
             stopCore()
             delay(s.retryMs())
+        }
+    }
+
+    /** Waits (without burning connection attempts) until the phone has a real network again. */
+    private suspend fun awaitNetwork() {
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
+        var logged = false
+        while (currentCoroutineContext().isActive && cm.activeNetwork == null) {
+            if (!logged) { Engine.log("No network. Waiting for it to come back"); logged = true }
+            delay(2000)
         }
     }
 
@@ -760,7 +828,7 @@ class TunnelService : VpnService() {
     // ----------------------------------------------------------- notification
 
     private fun textFor(st: Status): String = when (st.phase) {
-        Phase.CONNECTED -> getString(R.string.connected) + " · " + SettingsStore.current.activeLabel()
+        Phase.CONNECTED -> if (Engine.paused.value) getString(R.string.vpn_paused) else getString(R.string.connected) + " · " + SettingsStore.current.activeLabel()
         Phase.CONNECTING -> getString(R.string.connecting)
         Phase.RECONNECTING -> getString(R.string.reconnecting) + " " + getString(R.string.attempt_of, st.attempt, SettingsStore.current.tries())
         Phase.STOPPING -> getString(R.string.stopping)
@@ -799,7 +867,17 @@ class TunnelService : VpnService() {
         private const val NOTIF_ID = 8
         const val ACTION_STOP = "app.vpn8.STOP"
         const val ACTION_RESCAN = "app.vpn8.RESCAN"
+        const val ACTION_PAUSE = "app.vpn8.PAUSE"
+        const val ACTION_RESUME = "app.vpn8.RESUME"
         private const val SLOW_BPS = 150_000L // below ~150 KB/s the link is treated as unusable
+
+        fun pause(ctx: Context) {
+            ctx.startService(Intent(ctx, TunnelService::class.java).setAction(ACTION_PAUSE))
+        }
+
+        fun resume(ctx: Context) {
+            ctx.startService(Intent(ctx, TunnelService::class.java).setAction(ACTION_RESUME))
+        }
 
         fun rescan(ctx: Context) {
             ctx.startService(Intent(ctx, TunnelService::class.java).setAction(ACTION_RESCAN))

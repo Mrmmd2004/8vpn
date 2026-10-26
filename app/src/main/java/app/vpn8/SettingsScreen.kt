@@ -161,6 +161,14 @@ fun SettingsScreen(
                 }
             }
 
+            // ---- Local proxy ports
+            Group(stringResource(R.string.sec_ports)) {
+                PortRow(stringResource(R.string.socks_port), s.socksPort, if (s.httpEnabled) s.httpPort else -1, stringResource(R.string.port_invalid)) { v -> up { it.copy(socksPort = v) } }
+                SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
+                if (s.httpEnabled) PortRow(stringResource(R.string.http_port), s.httpPort, s.socksPort, stringResource(R.string.port_invalid)) { v -> up { it.copy(httpPort = v) } }
+                Hint(stringResource(R.string.ports_note))
+            }
+
             // ---- Advanced
             Group(stringResource(R.string.sec_advanced)) {
                 Field(stringResource(R.string.perf_profile)) {
@@ -170,9 +178,6 @@ fun SettingsScreen(
                 NumberRow(stringResource(R.string.tun_mtu), s.tunMtu) { v -> up { it.copy(tunMtu = v) } }
                 NumberRow(stringResource(R.string.tcp_buffer), s.tcpBufferKb) { v -> up { it.copy(tcpBufferKb = v) } }
                 Hint(stringResource(R.string.tunnel_note))
-                NumberRow(stringResource(R.string.socks_port), s.socksPort) { v -> up { it.copy(socksPort = v) } }
-                SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
-                if (s.httpEnabled) NumberRow(stringResource(R.string.http_port), s.httpPort) { v -> up { it.copy(httpPort = v) } }
                 ActionRow(Ico.LOGS, stringResource(R.string.open_logs), onClick = openLogs)
                 ActionRow(Ico.TRASH, stringResource(R.string.clear_cache), enabled = st.phase == Phase.IDLE, danger = true) { confirmClear = true }
             }

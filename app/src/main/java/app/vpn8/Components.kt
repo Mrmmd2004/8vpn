@@ -63,7 +63,7 @@ import androidx.compose.ui.unit.sp
 
 enum class Ico {
     BACK, SETTINGS, LOGS, POWER, CHECK, CHEVRON, LOCK, DOWN, UP, BOLT, GLOBE, REFRESH,
-    COPY, SHARE, TRASH, INFO, CODE, SEND
+    COPY, SHARE, TRASH, INFO, CODE, SEND, PAUSE, PLAY
 }
 
 @Composable
@@ -144,6 +144,8 @@ fun Icon8(ico: Ico, tint: Color, sz: Dp = 22.dp, modifier: Modifier = Modifier, 
                 line(12f, 11.5f, 12f, 16.5f)
             }
             Ico.CODE -> { poly(false, 8f, 7f, 3f, 12f, 8f, 17f); poly(false, 16f, 7f, 21f, 12f, 16f, 17f); line(13.5f, 5f, 10.5f, 19f) }
+            Ico.PAUSE -> { line(9f, 5f, 9f, 19f); line(15f, 5f, 15f, 19f) }
+            Ico.PLAY -> poly(true, 8f, 5f, 19f, 12f, 8f, 19f)
             Ico.SEND -> { poly(true, 21f, 3f, 3f, 10.5f, 10f, 13f, 13f, 20f); line(10f, 13f, 21f, 3f) }
         }
     }
@@ -404,6 +406,32 @@ fun NumberRow(title: String, value: Int, onChange: (Int) -> Unit) {
                 t = v.filter { it.isDigit() }.take(5)
                 t.toIntOrNull()?.let(onChange)
             },
+            singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors(),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * Port field. The text is kept exactly as typed and a value is saved only once it is a valid, free
+ * port, so a half-typed number never gets rewritten under the user's fingers.
+ */
+@Composable
+fun PortRow(title: String, value: Int, otherPort: Int, errorText: String, onValid: (Int) -> Unit) {
+    var t by remember { mutableStateOf(value.toString()) }
+    val n = t.toIntOrNull()
+    val bad = n == null || n !in 1024..65535 || n == TOR_PORT || n == PSIPHON_PORT || n == otherPort
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label(title)
+        OutlinedTextField(
+            value = t,
+            onValueChange = { v ->
+                t = v.filter { it.isDigit() }.take(5)
+                val x = t.toIntOrNull()
+                if (x != null && x in 1024..65535 && x != TOR_PORT && x != PSIPHON_PORT && x != otherPort) onValid(x)
+            },
+            isError = bad,
+            supportingText = if (bad) ({ Text(errorText) }) else null,
             singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors(),
             modifier = Modifier.fillMaxWidth()
         )

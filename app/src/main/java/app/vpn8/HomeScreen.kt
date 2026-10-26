@@ -78,7 +78,6 @@ import kotlinx.coroutines.withContext
 
 private fun up(f: (Settings) -> Settings) = SettingsStore.update(f)
 
-private var askedBattery = false
 
 private fun fmtRate(b: Long): String = when {
     b < 0 -> "—"
@@ -103,29 +102,22 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
 
     val idle = st.phase == Phase.IDLE
     val scope = rememberCoroutineScope()
+    val paused by Engine.paused.collectAsStateWithLifecycle()
     var testing by remember { mutableStateOf(false) }
-    var showBattery by remember { mutableStateOf(false) }
-    var testResult by remember { mutableStateOf<String?>(null) }
-    val failedText = stringResource(R.string.ping_failed)
-    val ctxRes = LocalContext.current
 
+    // The result goes into the Ping box of the stats card above; no separate text next to the button.
     fun runPing() {
-        if (testing) return
+        if (testing || st.phase != Phase.CONNECTED) return
         testing = true
-        testResult = null
-        // Only meaningful through the tunnel: with the VPN off there is nothing to measure.
-        if (st.phase != Phase.CONNECTED) { testing = false; return }
         val port = ArgBuilder.exitPort(s)
         scope.launch {
             val ms: Long? = withContext(Dispatchers.IO) {
                 Socks.httpGet(port, "cp.cloudflare.com", "/generate_204", 8000)?.first
             }
             if (ms != null) Engine.pingMs.value = ms.toInt()
-            testResult = ms?.let { ctxRes.getString(R.string.ms_fmt, it.toInt()) } ?: failedText
             testing = false
         }
     }
-    LaunchedEffect(st.phase) { if (st.phase != Phase.CONNECTED) testResult = null }
     val vpnLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK) TunnelService.start(ctx)
     }
@@ -133,11 +125,6 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
     fun toggle() {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         if (idle) {
-            val pm = ctx.getSystemService(android.os.PowerManager::class.java)
-            if (!askedBattery && !pm.isIgnoringBatteryOptimizations(ctx.packageName)) {
-                showBattery = true
-                return
-            }
             val i = if (s.vpnMode) VpnService.prepare(ctx) else null
             if (i != null) vpnLauncher.launch(i) else TunnelService.start(ctx)
         } else if (st.phase != Phase.STOPPING) {
@@ -145,47 +132,17 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         }
     }
 
-    if (showBattery) {
-        AlertDialog(
-            onDismissRequest = { showBattery = false },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            title = { Text(stringResource(R.string.battery_title)) },
-            text = { Text(stringResource(R.string.battery_text)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showBattery = false
-                    runCatching {
-                        ctx.startActivity(
-                            android.content.Intent(
-                                android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                android.net.Uri.parse("package:" + ctx.packageName)
-                            )
-                        )
-                    }
-                }) { Text(stringResource(R.string.battery_allow)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showBattery = false
-                    askedBattery = true
-                    toggle()
-                }) { Text(stringResource(R.string.battery_skip)) }
-            }
-        )
-    }
-
     val c = MaterialTheme.colorScheme
     val x = LocalExtra.current
     val title = when (st.phase) {
         Phase.IDLE -> R.string.disconnected
         Phase.CONNECTING -> R.string.connecting
-        Phase.CONNECTED -> R.string.connected
+        Phase.CONNECTED -> if (paused) R.string.vpn_paused else R.string.connected
         Phase.RECONNECTING -> R.string.reconnecting
         Phase.STOPPING -> R.string.stopping
     }
     val statusColor = when (st.phase) {
-        Phase.CONNECTED -> x.a
+        Phase.CONNECTED -> if (paused) x.busy else x.a
         Phase.IDLE -> c.onSurfaceVariant
         else -> x.busy
     }
@@ -223,8 +180,12 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text(stringResource(title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = statusColor)
             // Country flag of the exit IP, shown next to "Connected" (like the Windows app).
-            val flagCc = if (live) exitCc ?: s.psiphonRegion.takeIf { s.route.usesPsiphon && it.length == 2 } else null
-            if (flagCc != null) {
+            val flagCc = if (live && !paused) exitCc ?: s.psiphonRegion.takeIf { s.route.usesPsiphon && it.length == 2 } else null
+            if (live && !paused && s.route.family == Family.TOR) {
+                // Tor: the exit changes all the time, so show the same "auto" globe as the region picker.
+                Spacer(Modifier.width(8.dp))
+                Text("\uD83C\uDF10", style = MaterialTheme.typography.titleMedium)
+            } else if (flagCc != null) {
                 Spacer(Modifier.width(8.dp))
                 CountryFlag(flagCc)
             }
@@ -237,6 +198,8 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
             Text(st.error!!, style = MaterialTheme.typography.bodySmall, color = c.error, textAlign = TextAlign.Center)
         } else if (idle) {
             Text(stringResource(R.string.tap_to_connect), style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant)
+        } else if (live && paused) {
+            Text(stringResource(R.string.paused_hint), style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant, textAlign = TextAlign.Center)
         } else if (live) {
             Text(
                 s.activeLabel() + (exit?.let { "  ·  $it" } ?: ""),
@@ -276,11 +239,22 @@ fun HomeScreen(openSettings: () -> Unit, openLogs: () -> Unit) {
         if (live) {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TonalPill(Ico.BOLT, if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test), enabled = !testing) { runPing() }
+                TonalPill(Ico.BOLT, if (testing) stringResource(R.string.ping_testing) else stringResource(R.string.ping_test), enabled = !testing && !paused) { runPing() }
+                // Start / Stop: Stop switches the VPN interface off but keeps the core running,
+                // so Start brings the VPN back at once (handy for banking apps that dislike VPNs).
+                if (s.vpnMode) {
+                    TonalPill(
+                        if (paused) Ico.PLAY else Ico.PAUSE,
+                        stringResource(if (paused) R.string.vpn_start else R.string.vpn_stop),
+                        danger = !paused
+                    ) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (paused) TunnelService.resume(ctx) else TunnelService.pause(ctx)
+                    }
+                }
                 if (s.route.family == Family.AETHER) {
                     TonalPill(Ico.REFRESH, stringResource(R.string.rescan)) { TunnelService.rescan(ctx) }
                 }
-                testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant) }
             }
         }
 

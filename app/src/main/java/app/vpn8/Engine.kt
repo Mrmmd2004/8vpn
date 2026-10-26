@@ -17,6 +17,8 @@ object Engine {
     val exitCountry = MutableStateFlow<String?>(null)
     /** Measured download speed through the tunnel in bytes/s (null = not measured yet). */
     val speedBps = MutableStateFlow<Long?>(null)
+    /** True while the VPN interface is switched off but the core keeps running (Stop button). */
+    val paused = MutableStateFlow(false)
     val logs = MutableStateFlow<List<String>>(emptyList())
     /** Why the link last dropped (shown under the connect button); null = nothing dropped yet. */
     val lastReason = MutableStateFlow<String?>(null)
