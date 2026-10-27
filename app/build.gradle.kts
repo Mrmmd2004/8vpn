@@ -12,7 +12,7 @@ android {
         applicationId = "app.vpn8"
         minSdk = 26
         targetSdk = 35
-        versionCode = 58
+        versionCode = 59
         versionName = "5.8"
     }
 

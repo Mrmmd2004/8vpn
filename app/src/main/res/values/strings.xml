@@ -149,12 +149,17 @@
     <string name="update_available">Version %1$s is available</string>
     <string name="sec_ports">Local proxy ports</string>
     <string name="port_invalid">Use a free port between 1024 and 65535 (1820 and 1821 are reserved, and the two ports must differ)</string>
-    <string name="ports_note">Point other apps at 127.0.0.1 and these ports. A new port applies on the next connection.</string>
-    <string name="sec_lan">Share over hotspot / USB</string>
+    <string name="ports_note">Other apps on this phone use 127.0.0.1 and these ports. A new port applies on the next connection.</string>
+    <string name="sec_lan">Proxy ports and sharing</string>
     <string name="lan_share">Let other devices use the proxy</string>
     <string name="lan_addr">%1$s: SOCKS5 %2$s</string>
     <string name="lan_addr_http">HTTP proxy %1$s</string>
     <string name="lan_no_ip">No hotspot or USB tethering address found yet. Turn on the hotspot or USB tethering, then reopen this screen.</string>
-    <string name="lan_howto">Turn on the phone hotspot or USB tethering, connect the laptop, then set its proxy to the address above. The setting applies on the next connection. With Aether → Psiphon or Aether → Tor, the shared SOCKS5 port is the Psiphon (1821) or Tor (1820) port.</string>
+    <string name="lan_howto">To use the proxy from a laptop: turn on the phone hotspot (or USB tethering), connect the laptop, then set its proxy to the address above. 0.0.0.0 means every network of the phone; a specific IP only works while that network is up. Changes apply on the next connection. SOCKS5 always runs because the app uses it itself; the switch only decides who can reach it. With Aether → Psiphon or Aether → Tor the shared SOCKS5 port is the Psiphon (1821) or Tor (1820) one.</string>
     <string name="lan_warn">Anyone on the same hotspot or Wi-Fi network can use this proxy. Keep a strong hotspot password and turn this off when you are done.</string>
+    <string name="socks_share">Share SOCKS5 with other devices</string>
+    <string name="socks_addr">SOCKS5 listen address</string>
+    <string name="http_share">Share HTTP proxy with other devices</string>
+    <string name="http_addr">HTTP proxy listen address</string>
+    <string name="addr_invalid">Enter an IPv4 address such as 0.0.0.0 (all networks) or 192.168.43.1. Invalid text is treated as 0.0.0.0.</string>
 </resources>

@@ -22,7 +22,7 @@ object Socks {
      */
     fun download(port: Int, host: String, path: String, maxBytes: Long, budgetMs: Long): Triple<Int, Long, Long>? = try {
         Socket().use { s ->
-            s.connect(InetSocketAddress("127.0.0.1", port), 5000)
+            s.connect(InetSocketAddress(LocalHost.host, port), 5000)
             s.soTimeout = 5000
             val o = s.getOutputStream()
             val i = s.getInputStream()
@@ -76,7 +76,7 @@ object Socks {
     /** Returns (milliseconds to first response byte, response text) or null on failure. */
     fun httpGet(port: Int, host: String, path: String, timeoutMs: Int): Pair<Long, String>? = try {
         Socket().use { s ->
-            s.connect(InetSocketAddress("127.0.0.1", port), timeoutMs)
+            s.connect(InetSocketAddress(LocalHost.host, port), timeoutMs)
             s.soTimeout = timeoutMs
             val o = s.getOutputStream()
             val i = s.getInputStream()

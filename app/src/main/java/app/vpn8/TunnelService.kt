@@ -187,6 +187,7 @@ class TunnelService : VpnService() {
 
     private suspend fun run(base: Settings) {
         var s = base
+        LocalHost.host = s.localHost()
         val port = ArgBuilder.exitPort(s)
         curPort = port
         var failures = 0
@@ -378,7 +379,7 @@ class TunnelService : VpnService() {
     }
 
     private fun portOpen(port: Int): Boolean = try {
-        Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 300) }
+        Socket().use { it.connect(InetSocketAddress(LocalHost.host, port), 300) }
         true
     } catch (_: Exception) {
         false
@@ -590,7 +591,7 @@ class TunnelService : VpnService() {
         val yml = ArrayList<String>()
         yml += listOf("tunnel:", "  mtu: ${s.mtu()}", "  ipv4: 198.18.0.1")
         if (v6) yml += "  ipv6: 'fc00::1'"
-        yml += listOf("socks5:", "  port: $port", "  address: 127.0.0.1")
+        yml += listOf("socks5:", "  port: $port", "  address: ${LocalHost.host}")
         // Standard SOCKS5 UDP ASSOCIATE for every engine mode except hev-tcp. Leaving this line out
         // is not "no UDP": hev then defaults to its own UDP-over-TCP command (0x05), which Psiphon's
         // SOCKS proxy rejects once per flow, so apps that retry QUIC flood it with refused connections.

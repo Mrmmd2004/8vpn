@@ -22,10 +22,15 @@ object LanShare {
         emptyList()
     }
 
+    /** Addresses to show for a listen address: every device address for 0.0.0.0, the address itself otherwise. */
+    fun targets(host: String): List<Addr> =
+        if (host == "0.0.0.0") addresses() else if (host == "127.0.0.1") emptyList() else listOf(Addr("", host))
+
     /** Short human label for an interface name. */
     fun kind(iface: String): String = when {
         iface.startsWith("wlan") || iface.startsWith("swlan") || iface.startsWith("ap") -> "Wi-Fi / Hotspot"
         iface.startsWith("rndis") || iface.startsWith("usb") || iface.startsWith("eth") -> "USB / Ethernet"
+        iface.isEmpty() -> "Custom"
         else -> iface
     }
 }

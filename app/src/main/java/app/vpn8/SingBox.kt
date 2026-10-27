@@ -142,7 +142,7 @@ object SingBox {
                 JSONArray()
                     .put(
                         JSONObject().put("type", "socks").put("tag", "proxy")
-                            .put("server", "127.0.0.1").put("server_port", port).put("version", "5")
+                            .put("server", LocalHost.host).put("server_port", port).put("version", "5")
                     )
                     .put(JSONObject().put("type", "direct").put("tag", "direct"))
             )

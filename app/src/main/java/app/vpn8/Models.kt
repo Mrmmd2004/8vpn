@@ -72,10 +72,31 @@ data class Settings(
     val socksPort: Int = 1819,
     val httpEnabled: Boolean = false,
     val httpPort: Int = 1822,
-    val lanShare: Boolean = false, // listen on all interfaces (hotspot / USB tethering) instead of 127.0.0.1 only
+    val socksShare: Boolean = false, // SOCKS5 listens on socksHost (hotspot / USB tethering) instead of 127.0.0.1 only
+    val socksHost: String = "0.0.0.0",
+    val httpShare: Boolean = false,  // HTTP proxy listens on httpHost instead of 127.0.0.1 only
+    val httpHost: String = "0.0.0.0",
     val splitMode: String = "off",
     val splitApps: Set<String> = emptySet(),
 )
+
+/** Listen-address helpers for the proxy sharing options. */
+object Hosts {
+    fun valid(v: String): Boolean {
+        val p = v.trim().split('.')
+        return p.size == 4 && p.all { it.isNotEmpty() && it.length <= 3 && it.all(Char::isDigit) && it.toInt() <= 255 }
+    }
+    fun clean(v: String): String = if (valid(v)) v.trim() else "0.0.0.0"
+}
+
+fun Settings.socksBind(): String = if (socksShare) Hosts.clean(socksHost) else "127.0.0.1"
+fun Settings.httpBind(): String = if (httpShare) Hosts.clean(httpHost) else "127.0.0.1"
+
+/** Address this app itself uses to reach its own SOCKS5 listener. */
+fun Settings.localHost(): String = socksBind().let { if (it == "0.0.0.0") "127.0.0.1" else it }
+
+/** Set when a connection starts, so probes and the TUN engine talk to the address the core really bound. */
+object LocalHost { @Volatile var host: String = "127.0.0.1" }
 
 /** Custom gateway helpers. Aether wants `ip:port` (IPv6 as `[addr]:port`). */
 object Endpoints {
@@ -228,7 +249,10 @@ object SettingsStore {
             socksPort = prefs.getInt("socksPort", d.socksPort),
             httpEnabled = prefs.getBoolean("httpEnabled", d.httpEnabled),
             httpPort = prefs.getInt("httpPort", d.httpPort),
-            lanShare = prefs.getBoolean("lanShare", d.lanShare),
+            socksShare = prefs.getBoolean("socksShare", prefs.getBoolean("lanShare", d.socksShare)),
+            socksHost = str("socksHost", d.socksHost),
+            httpShare = prefs.getBoolean("httpShare", prefs.getBoolean("lanShare", d.httpShare)),
+            httpHost = str("httpHost", d.httpHost),
             splitMode = str("splitMode", d.splitMode),
             splitApps = prefs.getStringSet("splitApps", emptySet()) ?: emptySet(),
         )
@@ -253,7 +277,8 @@ object SettingsStore {
             .putString("psiphonRegion", s.psiphonRegion).putString("psiphonMode", s.psiphonMode)
             .putString("torBridges", s.torBridges).putInt("socksPort", s.socksPort)
             .putBoolean("httpEnabled", s.httpEnabled).putInt("httpPort", s.httpPort)
-            .putBoolean("lanShare", s.lanShare)
+            .putBoolean("socksShare", s.socksShare).putString("socksHost", s.socksHost)
+            .putBoolean("httpShare", s.httpShare).putString("httpHost", s.httpHost)
             .putString("splitMode", s.splitMode).putStringSet("splitApps", HashSet(s.splitApps))
             .apply()
     }

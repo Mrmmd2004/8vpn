@@ -161,31 +161,43 @@ fun SettingsScreen(
                 }
             }
 
-            // ---- Local proxy ports
-            Group(stringResource(R.string.sec_ports)) {
-                PortRow(stringResource(R.string.socks_port), s.socksPort, if (s.httpEnabled) s.httpPort else -1, stringResource(R.string.port_invalid)) { v -> up { it.copy(socksPort = v) } }
-                SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
-                if (s.httpEnabled) PortRow(stringResource(R.string.http_port), s.httpPort, s.socksPort, stringResource(R.string.port_invalid)) { v -> up { it.copy(httpPort = v) } }
-                Hint(stringResource(R.string.ports_note))
-            }
-
-            // ---- Share over hotspot / USB
+            // ---- Proxy ports and sharing
             Group(stringResource(R.string.sec_lan)) {
-                SwitchRow(stringResource(R.string.lan_share), s.lanShare) { v -> up { it.copy(lanShare = v) } }
-                if (s.lanShare) {
-                    val addrs = remember(s.lanShare, st.phase) { LanShare.addresses() }
-                    val socks = ArgBuilder.exitPort(s)
-                    if (addrs.isEmpty()) {
+                // SOCKS5 (always running: the app itself uses it)
+                PortRow(stringResource(R.string.socks_port), s.socksPort, if (s.httpEnabled) s.httpPort else -1, stringResource(R.string.port_invalid)) { v -> up { it.copy(socksPort = v) } }
+                SwitchRow(stringResource(R.string.socks_share), s.socksShare) { v -> up { it.copy(socksShare = v) } }
+                if (s.socksShare) {
+                    TextRow(stringResource(R.string.socks_addr), s.socksHost, "0.0.0.0", isError = !Hosts.valid(s.socksHost)) { v -> up { it.copy(socksHost = v.trim()) } }
+                    if (!Hosts.valid(s.socksHost)) Hint(stringResource(R.string.addr_invalid), error = true)
+                }
+
+                // HTTP proxy (fully on / off)
+                SwitchRow(stringResource(R.string.http_proxy), s.httpEnabled) { v -> up { it.copy(httpEnabled = v) } }
+                if (s.httpEnabled) {
+                    PortRow(stringResource(R.string.http_port), s.httpPort, s.socksPort, stringResource(R.string.port_invalid)) { v -> up { it.copy(httpPort = v) } }
+                    SwitchRow(stringResource(R.string.http_share), s.httpShare) { v -> up { it.copy(httpShare = v) } }
+                    if (s.httpShare) {
+                        TextRow(stringResource(R.string.http_addr), s.httpHost, "0.0.0.0", isError = !Hosts.valid(s.httpHost)) { v -> up { it.copy(httpHost = v.trim()) } }
+                        if (!Hosts.valid(s.httpHost)) Hint(stringResource(R.string.addr_invalid), error = true)
+                    }
+                }
+
+                val sharingSocks = s.socksShare
+                val sharingHttp = s.httpEnabled && s.httpShare
+                if (sharingSocks || sharingHttp) {
+                    val socksT = remember(s.socksShare, s.socksHost, st.phase) { if (sharingSocks) LanShare.targets(Hosts.clean(s.socksHost)) else emptyList() }
+                    val httpT = remember(s.httpShare, s.httpHost, s.httpEnabled, st.phase) { if (sharingHttp) LanShare.targets(Hosts.clean(s.httpHost)) else emptyList() }
+                    if (socksT.isEmpty() && httpT.isEmpty()) {
                         Hint(stringResource(R.string.lan_no_ip))
                     } else {
-                        for (a in addrs) {
-                            Hint(stringResource(R.string.lan_addr, LanShare.kind(a.iface), "${a.ip}:$socks"))
-                            if (s.httpEnabled) Hint(stringResource(R.string.lan_addr_http, "${a.ip}:${s.httpPort}"))
-                        }
+                        val socksPort = ArgBuilder.exitPort(s)
+                        for (a in socksT) Hint(stringResource(R.string.lan_addr, LanShare.kind(a.iface), "${a.ip}:$socksPort"))
+                        for (a in httpT) Hint(stringResource(R.string.lan_addr_http, "${a.ip}:${s.httpPort}"))
                     }
                     Hint(stringResource(R.string.lan_howto))
                     Hint(stringResource(R.string.lan_warn), error = true)
                 }
+                Hint(stringResource(R.string.ports_note))
             }
 
             // ---- Advanced

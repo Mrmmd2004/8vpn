@@ -144,12 +144,17 @@
     <string name="update_available">نسخه‌ی %1$s موجود است</string>
     <string name="sec_ports">پورت‌های پروکسی محلی</string>
     <string name="port_invalid">یه پورت آزاد بین ۱۰۲۴ تا ۶۵۵۳۵ بذار (۱۸۲۰ و ۱۸۲۱ رزروه و دو پورت باید با هم فرق داشته باشن)</string>
-    <string name="ports_note">بقیه‌ی برنامه‌ها رو روی 127.0.0.1 و همین پورت‌ها تنظیم کن. پورت جدید در اتصال بعدی اعمال می‌شه.</string>
-    <string name="sec_lan">اشتراک‌گذاری با هات‌اسپات / کابل</string>
+    <string name="ports_note">برنامه‌های دیگه‌ی همین گوشی از 127.0.0.1 و همین پورت‌ها استفاده می‌کنن. پورت جدید در اتصال بعدی اعمال می‌شه.</string>
+    <string name="sec_lan">پورت‌ها و اشتراک‌گذاری پروکسی</string>
     <string name="lan_share">اجازه بده دستگاه‌های دیگه از پروکسی استفاده کنن</string>
     <string name="lan_addr">%1$s: SOCKS5 ‏%2$s</string>
     <string name="lan_addr_http">پروکسی HTTP ‏%1$s</string>
     <string name="lan_no_ip">هنوز آدرس هات‌اسپات یا USB پیدا نشد. هات‌اسپات یا USB tethering رو روشن کن و بعد دوباره این صفحه رو باز کن.</string>
-    <string name="lan_howto">هات‌اسپات یا USB tethering گوشی رو روشن کن، لپ‌تاپ رو وصل کن و پروکسی لپ‌تاپ رو روی آدرس بالا بذار. تغییر این گزینه در اتصال بعدی اعمال می‌شه. تو مسیرهای Aether → Psiphon و Aether → Tor پورت SOCKS5 قابل‌اشتراک همون پورت Psiphon (۱۸۲۱) یا Tor (۱۸۲۰) هست.</string>
+    <string name="lan_howto">برای استفاده تو لپ‌تاپ: هات‌اسپات (یا USB tethering) گوشی رو روشن کن، لپ‌تاپ رو وصل کن و پروکسی لپ‌تاپ رو روی آدرس بالا بذار. 0.0.0.0 یعنی همه‌ی شبکه‌های گوشی؛ آی‌پی مشخص فقط وقتی کار می‌کنه که همون شبکه روشن باشه. تغییرها در اتصال بعدی اعمال می‌شن. SOCKS5 همیشه روشنه چون خود برنامه ازش استفاده می‌کنه؛ این سوییچ فقط تعیین می‌کنه کی بهش دسترسی داره. تو Aether → Psiphon و Aether → Tor پورت SOCKS5 قابل‌اشتراک همون پورت Psiphon (۱۸۲۱) یا Tor (۱۸۲۰) هست.</string>
     <string name="lan_warn">هر کسی روی همین هات‌اسپات یا وای‌فای باشه می‌تونه از این پروکسی استفاده کنه. رمز هات‌اسپات رو قوی بذار و بعد از کار خاموشش کن.</string>
+    <string name="socks_share">اشتراک SOCKS5 با دستگاه‌های دیگه</string>
+    <string name="socks_addr">آدرس شنود SOCKS5</string>
+    <string name="http_share">اشتراک پروکسی HTTP با دستگاه‌های دیگه</string>
+    <string name="http_addr">آدرس شنود پروکسی HTTP</string>
+    <string name="addr_invalid">یه آدرس IPv4 بنویس، مثل 0.0.0.0 (همه‌ی شبکه‌ها) یا 192.168.43.1. متن نامعتبر مثل 0.0.0.0 حساب می‌شه.</string>
 </resources>
