@@ -169,6 +169,25 @@ fun SettingsScreen(
                 Hint(stringResource(R.string.ports_note))
             }
 
+            // ---- Share over hotspot / USB
+            Group(stringResource(R.string.sec_lan)) {
+                SwitchRow(stringResource(R.string.lan_share), s.lanShare) { v -> up { it.copy(lanShare = v) } }
+                if (s.lanShare) {
+                    val addrs = remember(s.lanShare, st.phase) { LanShare.addresses() }
+                    val socks = ArgBuilder.exitPort(s)
+                    if (addrs.isEmpty()) {
+                        Hint(stringResource(R.string.lan_no_ip))
+                    } else {
+                        for (a in addrs) {
+                            Hint(stringResource(R.string.lan_addr, LanShare.kind(a.iface), "${a.ip}:$socks"))
+                            if (s.httpEnabled) Hint(stringResource(R.string.lan_addr_http, "${a.ip}:${s.httpPort}"))
+                        }
+                    }
+                    Hint(stringResource(R.string.lan_howto))
+                    Hint(stringResource(R.string.lan_warn), error = true)
+                }
+            }
+
             // ---- Advanced
             Group(stringResource(R.string.sec_advanced)) {
                 Field(stringResource(R.string.perf_profile)) {

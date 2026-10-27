@@ -12,8 +12,8 @@ android {
         applicationId = "app.vpn8"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "4.8"
+        versionCode = 58
+        versionName = "5.8"
     }
 
     val ksPath = System.getenv("KEYSTORE_FILE")

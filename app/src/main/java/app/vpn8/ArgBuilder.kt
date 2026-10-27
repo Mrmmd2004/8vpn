@@ -11,6 +11,9 @@ object ArgBuilder {
         else -> s.socksPort
     }
 
+    /** 127.0.0.1 normally; 0.0.0.0 when sharing over hotspot / USB tethering. */
+    fun bindHost(s: Settings): String = if (s.lanShare) "0.0.0.0" else "127.0.0.1"
+
     private fun csv(v: String) = v.split(',', '\n', ' ', ';').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(",")
 
     fun build(ctx: Context, s: Settings, fresh: Boolean, psiSlot: Int = 0): List<String> {
@@ -20,8 +23,8 @@ object ArgBuilder {
         val r = s.route
 
         a += listOf("--config", File(dir, "aether.toml").path)
-        a += listOf("--bind", "127.0.0.1:${s.socksPort}")
-        if (s.httpEnabled) a += listOf("--http-proxy", "127.0.0.1:${s.httpPort}")
+        a += listOf("--bind", "${bindHost(s)}:${s.socksPort}")
+        if (s.httpEnabled) a += listOf("--http-proxy", "${bindHost(s)}:${s.httpPort}")
 
         when (r) {
             Route.AETHER_PSIPHON -> a += "--psiphon"
@@ -84,13 +87,13 @@ object ArgBuilder {
         if (r.usesPsiphon) {
             a += listOf("--psiphon-bin", "$nl/libpsiphon.so")
             a += listOf("--psiphon-dir", File(dir, if (psiSlot == 0) "psiphon" else "psiphon-$psiSlot").path)
-            if (r != Route.PSIPHON_ONLY) a += listOf("--psiphon-bind", "127.0.0.1:$PSIPHON_PORT")
+            if (r != Route.PSIPHON_ONLY) a += listOf("--psiphon-bind", "${bindHost(s)}:$PSIPHON_PORT")
             a += listOf("--psiphon-mode", s.psiphonMode)
             if (s.psiphonRegion.isNotBlank()) a += listOf("--psiphon-region", s.psiphonRegion.uppercase())
         }
         if (r.usesTor) {
             a += listOf("--tor-dir", File(dir, "tor").path)
-            if (r != Route.TOR_ONLY) a += listOf("--tor-bind", "127.0.0.1:$TOR_PORT")
+            if (r != Route.TOR_ONLY) a += listOf("--tor-bind", "${bindHost(s)}:$TOR_PORT")
             when (s.torBridges) {
                 "always" -> a += "--tor-bridges"
                 "never" -> a += "--no-tor-bridges"

@@ -72,6 +72,7 @@ data class Settings(
     val socksPort: Int = 1819,
     val httpEnabled: Boolean = false,
     val httpPort: Int = 1822,
+    val lanShare: Boolean = false, // listen on all interfaces (hotspot / USB tethering) instead of 127.0.0.1 only
     val splitMode: String = "off",
     val splitApps: Set<String> = emptySet(),
 )
@@ -227,6 +228,7 @@ object SettingsStore {
             socksPort = prefs.getInt("socksPort", d.socksPort),
             httpEnabled = prefs.getBoolean("httpEnabled", d.httpEnabled),
             httpPort = prefs.getInt("httpPort", d.httpPort),
+            lanShare = prefs.getBoolean("lanShare", d.lanShare),
             splitMode = str("splitMode", d.splitMode),
             splitApps = prefs.getStringSet("splitApps", emptySet()) ?: emptySet(),
         )
@@ -251,6 +253,7 @@ object SettingsStore {
             .putString("psiphonRegion", s.psiphonRegion).putString("psiphonMode", s.psiphonMode)
             .putString("torBridges", s.torBridges).putInt("socksPort", s.socksPort)
             .putBoolean("httpEnabled", s.httpEnabled).putInt("httpPort", s.httpPort)
+            .putBoolean("lanShare", s.lanShare)
             .putString("splitMode", s.splitMode).putStringSet("splitApps", HashSet(s.splitApps))
             .apply()
     }
