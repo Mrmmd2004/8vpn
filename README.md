@@ -79,35 +79,12 @@ Ports: SOCKS5 `1819` (configurable), Tor `1820`, Psiphon `1821`, optional HTTP `
 
 > Please check each upstream repository for its current license terms.
 
-## Build with GitHub Actions
-
-1. Upload this project to your repository (`Mrmmd2004/8vpn`).
-2. Open **Actions → Build APKs → Run workflow** (or push to `main`, or push a tag like `v5.8` to also create a release).
-3. Download the `8VPN-apks` artifact:
-   `8VPN-armeabi-v7a.apk`, `8VPN-arm64-v8a.apk`, `8VPN-universal.apk` (v7a + v8a + x86_64).
-
-The workflow has three jobs: **native** (Aether with Tor, Psiphon, Lyrebird and hev-socks5-tunnel for three ABIs), **libbox** (sing-box library) and **apk** (Gradle release build).
-The first build is slow (Rust + BoringSSL + Tor + Go).
-
-**Signing (required).** The CI build fails without a fixed key, because debug-signed APKs cannot update each other. Add these repository secrets once and keep the same key forever:
-`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
-
-**Versions.** `AETHER_REF`, `HEV_REF` and `SINGBOX_REF` at the top of `.github/workflows/main.yml` pick the upstream versions.
-Defaults: Aether `v2.4.0`, hev-socks5-tunnel `2.19.0`, sing-box `v1.13.21`. When running the workflow by hand you can pass:
-
-- `aether_repo` (for example your own fork with a changed core) and `aether_ref` (tag, branch or full commit hash). Note that commit `21e7150` is the commit just before pull request #141 and is older than v2.2.0, so it lacks `--gool-peer` and `--gool-classic`.
-- `singbox_ref` to build the libbox library from another sing-box tag.
-
-`libbox.aar` is built by the `libbox` job (tags `with_gvisor` + `with_clash_api` and a few small ones, arm + arm64) and placed in `app/libs/`.
-For a local Gradle build, put a `libbox.aar` into `app/libs/` first.
-
 ## Notes
 
 - Aether is AGPL-3.0, so this project is AGPL-3.0 too (see [LICENSE](LICENSE)).
 - Aether's trademark policy asks derivative products to use their own name and branding, so the app is named **8 VPN** and the core is only credited.
 - The Psiphon region list is static; the real set depends on Psiphon's servers.
 - Sharing the proxy lets anyone on the same hotspot or Wi-Fi network use it. Use a strong hotspot password and turn sharing off when you are done.
-- `8vpn-fix5/` and `backup-old-ui/` are old patch and backup folders kept for reference. They are not part of the build.
 
 ---
 
@@ -188,34 +165,11 @@ For a local Gradle build, put a `libbox.aar` into `app/libs/` first.
 
 > مجوز دقیق و فعلی هر پروژه را در مخزن اصلی خودش بررسی کنید.
 
-## ساخت با GitHub Actions
-
-1. پروژه را در مخزن خودتان (`Mrmmd2004/8vpn`) آپلود کنید.
-2. به **Actions ← Build APKs ← Run workflow** بروید (یا روی `main` پوش کنید، یا یک تگ مثل `v5.8` بزنید تا ریلیز هم ساخته شود).
-3. آرتیفکت `8VPN-apks` را دانلود کنید:
-   `8VPN-armeabi-v7a.apk`، `8VPN-arm64-v8a.apk` و `8VPN-universal.apk` (شامل v7a و v8a و x86_64).
-
-ورک‌فلو سه جاب دارد: **native** (Aether همراه Tor، Psiphon، Lyrebird و hev-socks5-tunnel برای سه معماری)، **libbox** (کتابخانه‌ی sing-box) و **apk** (بیلد ریلیز Gradle).
-بیلد اول کند است (Rust و BoringSSL و Tor و Go).
-
-**امضا (الزامی).** بدون سکرت، بیلد عمداً متوقف می‌شود، چون APKهای امضاشده با کلید دیباگ روی هم آپدیت نمی‌شوند. یک بار این سکرت‌ها را اضافه کنید و همیشه از همان کلید استفاده کنید:
-`KEYSTORE_BASE64` و `KEYSTORE_PASSWORD` و `KEY_ALIAS` و `KEY_PASSWORD`.
-
-**نسخه‌ها.** مقادیر `AETHER_REF` و `HEV_REF` و `SINGBOX_REF` بالای فایل `.github/workflows/main.yml` نسخه‌ی پروژه‌های بالادستی را مشخص می‌کنند.
-پیش‌فرض‌ها: Aether نسخه‌ی `v2.4.0`، hev-socks5-tunnel نسخه‌ی `2.19.0` و sing-box نسخه‌ی `v1.13.21`. هنگام اجرای دستی ورک‌فلو می‌توانید این‌ها را بدهید:
-
-- `aether_repo` (مثلاً فورک خودتان با هسته‌ی تغییرداده‌شده) و `aether_ref` (تگ، برنچ یا هش کامل کامیت). توجه: کامیت `21e7150` درست قبل از pull request شماره‌ی ۱۴۱ است و از v2.2.0 قدیمی‌تر است، پس `--gool-peer` و `--gool-classic` را ندارد.
-- `singbox_ref` برای ساخت کتابخانه‌ی libbox از تگ دیگری از sing-box.
-
-فایل `libbox.aar` را جاب `libbox` می‌سازد (تگ‌های `with_gvisor` و `with_clash_api` و چند تگ کوچک، برای arm و arm64) و در `app/libs/` می‌گذارد.
-برای بیلد محلی با Gradle، اول یک `libbox.aar` در `app/libs/` بگذارید.
-
 ## نکته‌ها
 
 - Aether مجوز AGPL-3.0 دارد، پس این پروژه هم AGPL-3.0 است (فایل [LICENSE](LICENSE)).
 - سیاست علامت تجاری Aether از محصولات مشتق می‌خواهد نام و برند خودشان را داشته باشند؛ برای همین برنامه **8VPN** نام دارد و از هسته فقط به‌عنوان منبع یاد می‌شود.
 - فهرست مناطق Psiphon ثابت است و مجموعه‌ی واقعی به سرورهای Psiphon بستگی دارد.
 - با اشتراک‌گذاری پروکسی، هر کسی روی همان هات‌اسپات یا شبکه‌ی وای‌فای می‌تواند از آن استفاده کند. رمز هات‌اسپات را قوی بگذارید و بعد از کار اشتراک را خاموش کنید.
-- پوشه‌های `8vpn-fix5/` و `backup-old-ui/` پچ و بکاپ قدیمی هستند که برای مرجع مانده‌اند و در بیلد نقشی ندارند.
 
 </div>
